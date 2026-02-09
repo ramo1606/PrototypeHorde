@@ -17,7 +17,7 @@ file(GLOB SOURCES
 
 file(GLOB HEADERS
     include/*.h
-    #include/core/*.h
+    include/core/*.h
     include/core/rini/*.h
     include/core/rmem/*.h
     include/core/rres/*.h
@@ -83,6 +83,11 @@ FetchContent_MakeAvailable(raylib)
 
 # Add include directories
 include_directories(include)
+include_directories(include/core)
+include_directories(include/core/rini)
+include_directories(include/core/rmem)
+include_directories(include/core/rres)
+include_directories(include/core/rres/externals)
 
 # Create the executable with all source files
 add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})

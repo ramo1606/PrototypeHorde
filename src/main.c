@@ -1,28 +1,27 @@
-#include "common.h"
+#include "game.h"
 
-int main(void)
+/* Main game loop */
+int main(void) 
 {
-    // Initialize raylib
-    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "RG35XX Square Demo");
-    SetTargetFPS(60);
-    
-    // Main game loop
-    while (!WindowShouldClose())
+    Game* game = (Game*)malloc(sizeof(Game));
+    if (!game) 
     {
-        // Update game state
-        // (Your game logic here)
-        
-        // Draw
-        BeginDrawing();
-        ClearBackground(RAYWHITE);
-        
-        // (Your drawing code here)
-        
-        EndDrawing();
+		TraceLog(LOG_ERROR, "Failed to allocate memory for Game struct");
+        return -1;
     }
+
+    bool success = GAME_Init(game);
     
-    // Clean up
-    CloseWindow();
-    
+    if (!GAME_Init(game)) 
+    {
+        free(game);
+        return -1;
+    }
+
+    GAME_Run(game);
+    GAME_Shutdown(game);
+
+	free(game);
+
     return 0;
 }
