@@ -69,9 +69,13 @@ if(BUILD_FOR_RG35XX)
     set(GRAPHICS "GRAPHICS_API_OPENGL_ES3" CACHE STRING "Use OpenGL ES 3.0" FORCE)
 
 else()
-    message(STATUS "Configuring for Windows development")
+    if(WIN32 OR CMAKE_SYSTEM_NAME STREQUAL "Windows")
+        message(STATUS "Configuring for Windows (Desktop)")
+    else()
+        message(STATUS "Configuring for Linux (Desktop)")
+    endif()
     
-    # Windows build uses default GLFW and OpenGL
+    # Desktop build uses GLFW and OpenGL
     set(PLATFORM "Desktop" CACHE STRING "Desktop platform" FORCE)
     set(OPENGL_VERSION "3.3" CACHE STRING "OpenGL version" FORCE)
     set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -132,10 +136,18 @@ if(BUILD_FOR_RG35XX)
     )
     
 else()
-    # Windows specific configuration
+    # Desktop configuration (Windows via MSVC/MinGW, or native Linux)
     target_link_libraries(${PROJECT_NAME} raylib)
     
-    if(MSVC)
+    if(WIN32 OR CMAKE_SYSTEM_NAME STREQUAL "Windows")
+        # Windows target (MSVC or MinGW cross-compile)
+        if(MINGW)
+            # Static link the C runtime so the .exe is self-contained
+            target_link_options(${PROJECT_NAME} PRIVATE -static -static-libgcc)
+            target_link_libraries(${PROJECT_NAME} winmm gdi32 opengl32)
+        endif()
+        
+        if(MSVC)
         # Windows-specific flags for Visual Studio
         target_compile_definitions(${PROJECT_NAME} PRIVATE _CRT_SECURE_NO_WARNINGS)
         set_property(TARGET ${PROJECT_NAME} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
@@ -159,6 +171,10 @@ else()
             string(REPLACE "/" "\\" source_path_msvc "${source_path}")
             source_group("Source Files\\${source_path_msvc}" FILES "${source}")
         endforeach()
+        endif()
+    else()
+        # Native Linux build
+        target_link_libraries(${PROJECT_NAME} m pthread dl)
     endif()
 endif()
 
