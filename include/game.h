@@ -27,6 +27,7 @@ typedef enum
     GAME_STATE_GAME_OVER,
 	GAME_STATE_QUIT
 } GameState;
+
 struct Game
 {
     GameState state;
@@ -52,10 +53,6 @@ struct Game
 bool GAME_Init(Game* game);
 void GAME_Run(Game* game);
 void GAME_Shutdown(Game* game);
-
-void GAME_ProcessInput(Game* game);
-void GAME_FixedUpdate(Game* game, float deltaTime);
-void GAME_Render(Game* game);
 
 void GAME_AddActor(Game* game, Actor* actor);
 void GAME_RemoveActor(Game* game, Actor* actor);

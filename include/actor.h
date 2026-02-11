@@ -3,11 +3,14 @@
 #include "raylib.h"
 #include "raymath.h"
 #include <stdbool.h>
+#include "component.h"
+
+#define ACTOR_MAX_COMPONENTS 16
 
 typedef struct Game Game;
 typedef struct Actor Actor;
 
-typedef void (*ActorUpdateFn)(Actor *self, float dt);
+typedef void (*ActorUpdateFn)(Actor *self, float deltaTime);
 typedef void (*ActorInputFn)(Actor *self);
 typedef void (*ActorDestroyFn)(Actor *self);
 
@@ -32,6 +35,9 @@ struct Actor
     ActorUpdateFn  onUpdate;   /* Custom update logic (NULL = skip)    */
     ActorInputFn   onInput;    /* Custom input handling (NULL = skip)  */
     ActorDestroyFn onDestroy;  /* Cleanup before free (NULL = skip)    */
+
+    Component *components[ACTOR_MAX_COMPONENTS];
+    int        componentCount;
 };
 
 void ACTOR_Init(Actor *actor, Game *game);
@@ -50,3 +56,7 @@ void ACTOR_SetRotation(Actor *actor, Quaternion rot);
 void ACTOR_SetScale(Actor *actor, float scale);
 
 void ACTOR_RotateToNewForward(Actor *actor, Vector3 forward);
+
+void ACTOR_AddComponent(Actor *actor, Component *comp);
+void ACTOR_RemoveComponent(Actor *actor, Component *comp);
+Component *ACTOR_GetComponentOfType(Actor *actor, ComponentType type);

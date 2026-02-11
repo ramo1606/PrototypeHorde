@@ -1,6 +1,8 @@
 #include "actor.h"
+#include "component.h"
 #include "game.h"
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 
 void ACTOR_Init(Actor *actor, Game *game) 
@@ -18,6 +20,9 @@ void ACTOR_Init(Actor *actor, Game *game)
     actor->onInput   = NULL;
     actor->onDestroy = NULL;
 
+    actor->componentCount = 0;
+    memset(actor->components, 0, sizeof(actor->components));
+
     GAME_AddActor(game, actor);
 }
 
@@ -25,7 +30,13 @@ void ACTOR_Destroy(Actor *actor)
 {
     if (!actor) return;
 
-    /* Step 3: destroy all components here */
+    while (actor->componentCount > 0) 
+    {
+        int lastIndex = actor->componentCount - 1;
+        COMPONENT_Destroy(actor->components[lastIndex]);
+        actor->components[lastIndex] = NULL;
+        actor->componentCount--;
+    }
 
     if (actor->onDestroy) 
     {
@@ -46,7 +57,13 @@ void ACTOR_Update(Actor *actor, float deltaTime)
         ACTOR_ComputeWorldTransform(actor);
     }
 
-    /* Step 3: update components here */
+    for (int i = 0; i < actor->componentCount; i++) 
+    {
+        if (actor->components[i]->onUpdate) 
+        {
+            actor->components[i]->onUpdate(actor->components[i], deltaTime);
+        }
+    }
 
     if (actor->onUpdate) 
     {
@@ -59,7 +76,13 @@ void ACTOR_ProcessInput(Actor *actor)
     if (!actor) return;
     if (actor->state != ACTOR_STATE_ACTIVE) return;
 
-    /* Step 3: process input for components here */
+    for (int i = 0; i < actor->componentCount; i++) 
+    {
+        if (actor->components[i]->onInput) 
+        {
+            actor->components[i]->onInput(actor->components[i]);
+        }
+    }
 
     if (actor->onInput) 
     {
@@ -78,7 +101,13 @@ void ACTOR_ComputeWorldTransform(Actor *actor)
 
     actor->worldTransform = MatrixMultiply(MatrixMultiply(s, r), t);
 
-    /* Step 3: notify components of transform change */
+    for (int i = 0; i < actor->componentCount; i++) 
+    {
+        if (actor->components[i]->onWorldTransform) 
+        {
+            actor->components[i]->onWorldTransform(actor->components[i]);
+        }
+    }
 }
 
 Vector3 ACTOR_GetForward(const Actor *actor) 
@@ -137,4 +166,60 @@ void ACTOR_RotateToNewForward(Actor *actor, Vector3 forward)
         float angle = acosf(dot);
         ACTOR_SetRotation(actor, QuaternionFromAxisAngle(axis, angle));
     }
+}
+
+void ACTOR_AddComponent(Actor *actor, Component *comp) 
+{
+    if (actor->componentCount >= ACTOR_MAX_COMPONENTS) 
+    {
+        TraceLog(LOG_WARNING, "ACTOR: Component list full (%d)", ACTOR_MAX_COMPONENTS);
+        return;
+    }
+
+    int insertIdx = actor->componentCount;
+    for (int i = 0; i < actor->componentCount; i++) 
+    {
+        if (comp->updateOrder < actor->components[i]->updateOrder) 
+        {
+            insertIdx = i;
+            break;
+        }
+    }
+
+    for (int i = actor->componentCount; i > insertIdx; i--) 
+    {
+        actor->components[i] = actor->components[i - 1];
+    }
+
+    actor->components[insertIdx] = comp;
+    actor->componentCount++;
+}
+
+void ACTOR_RemoveComponent(Actor *actor, Component *comp) 
+{
+    for (int i = 0; i < actor->componentCount; i++) 
+    {
+        if (actor->components[i] == comp) 
+        {
+            for (int j = i; j < actor->componentCount - 1; j++) 
+            {
+                actor->components[j] = actor->components[j + 1];
+            }
+            actor->components[actor->componentCount - 1] = NULL;
+            actor->componentCount--;
+            return;
+        }
+    }
+}
+
+Component *ACTOR_GetComponentOfType(Actor *actor, ComponentType type) 
+{
+    for (int i = 0; i < actor->componentCount; i++) 
+    {
+        if (actor->components[i]->type == type) 
+        {
+            return actor->components[i];
+        }
+    }
+    return NULL;
 }
