@@ -10,10 +10,6 @@
 typedef struct Game Game;
 typedef struct Actor Actor;
 
-typedef void (*ActorUpdateFn)(Actor *self, float deltaTime);
-typedef void (*ActorInputFn)(Actor *self);
-typedef void (*ActorDestroyFn)(Actor *self);
-
 typedef enum 
 {
     ACTOR_STATE_ACTIVE,
@@ -21,42 +17,70 @@ typedef enum
     ACTOR_STATE_DEAD,
 } ActorState;
 
+typedef enum
+{
+    ACTOR_NONE,
+    TPS_ACTOR,
+    NUM_ACTOR_TYPES
+} ActorType;
+
+static const char* ActorTypeNames[NUM_ACTOR_TYPES];
+
+typedef void (*ActorUpdateFn)(Actor* self, float deltaTime);
+typedef void (*ActorInputFn)(Actor* self);
+typedef void (*ActorDestroyFn)(Actor* self);
+
 struct Actor 
 {
-    Vector3    position;
-    Quaternion rotation;
-    float      scale;
-    Matrix     worldTransform;
-    bool       isDirty; /* Has the transform changed since the last update? */
-
+    /* State */
     ActorState state;
-    Game      *game;
 
-    ActorUpdateFn  onUpdate;   /* Custom update logic (NULL = skip)    */
-    ActorInputFn   onInput;    /* Custom input handling (NULL = skip)  */
-    ActorDestroyFn onDestroy;  /* Cleanup before free (NULL = skip)    */
+    /* Transform */
+    Vector3 position;
+    Quaternion rotation;
+    float scale;
 
-    Component *components[ACTOR_MAX_COMPONENTS];
-    int        componentCount;
+    Matrix worldTransform;
+    bool isDirty;
+
+    /* Virtual Functtions */
+    ActorUpdateFn onUpdate;
+    ActorInputFn onInput;
+    ActorDestroyFn onDestroy;
+
+    /* Components List */
+    Component* components[ACTOR_MAX_COMPONENTS];
+    int componentCount;
+
+    /* Game */
+    Game* game;
 };
 
-void ACTOR_Init(Actor *actor, Game *game);
-void ACTOR_Destroy(Actor *actor);
-void ACTOR_Update(Actor *actor, float deltaTime);
-void ACTOR_ProcessInput(Actor *actor);
+/* Life Cycle */
+void ACTOR_Init(Actor* actor, Game* game);
+void ACTOR_Destroy(Actor* actor);
 
-void ACTOR_ComputeWorldTransform(Actor *actor);
+/* Update */
+void ACTOR_Update(Actor* actor, float deltaTime);
+void ACTOR_UpdateComponents(Actor* actor, float deltaTime);
+void ACTOR_ProcessInput(Actor* actor);
 
-Vector3 ACTOR_GetForward(const Actor *actor);
-Vector3 ACTOR_GetRight(const Actor *actor);
-Vector3 ACTOR_GetUp(const Actor *actor);
+void ACTOR_ComputeWorldTransform(Actor* actor);
 
-void ACTOR_SetPosition(Actor *actor, Vector3 pos);
-void ACTOR_SetRotation(Actor *actor, Quaternion rot);
-void ACTOR_SetScale(Actor *actor, float scale);
+Vector3 ACTOR_GetForward(const Actor* actor);
+Vector3 ACTOR_GetRight(const Actor* actor);
+Vector3 ACTOR_GetUp(const Actor* actor);
 
-void ACTOR_RotateToNewForward(Actor *actor, Vector3 forward);
+void ACTOR_SetPosition(Actor* actor, Vector3 pos);
+void ACTOR_SetRotation(Actor* actor, Quaternion rot);
+void ACTOR_SetScale(Actor* actor, float scale);
 
-void ACTOR_AddComponent(Actor *actor, Component *comp);
-void ACTOR_RemoveComponent(Actor *actor, Component *comp);
-Component *ACTOR_GetComponentOfType(Actor *actor, ComponentType type);
+void ACTOR_RotateToNewForward(Actor* actor, Vector3 forward);
+
+void ACTOR_AddComponent(Actor* actor, Component* comp);
+void ACTOR_RemoveComponent(Actor* actor, Component* comp);
+Component *ACTOR_GetComponentOfType(Actor* actor, ComponentType type);
+
+//void COMPONENT_LoadProperty(json);
+//void COMPONENT_SaveProperty(json);
+//Component* COMPONENT_Create(Actor* actor, json);

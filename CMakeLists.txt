@@ -92,6 +92,7 @@ include_directories(include/core/rini)
 include_directories(include/core/rmem)
 include_directories(include/core/rres)
 include_directories(include/core/rres/externals)
+include_directories(include/raygui)
 
 # Create the executable with all source files
 add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})

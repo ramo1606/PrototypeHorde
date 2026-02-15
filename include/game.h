@@ -1,13 +1,13 @@
 #pragma once
 #include "raylib.h"
-#include <stdlib.h>
 #include <stdbool.h>
 
 typedef struct Actor Actor;
+typedef struct Scene Scene;
 typedef struct Game Game;
 
-#define SCREEN_WIDTH   640
-#define SCREEN_HEIGHT  480
+#define SCREEN_WIDTH   1024
+#define SCREEN_HEIGHT  768
 #define GAME_TITLE  "Prototype Horde"
 
 #define UPDATE_RATE 60
@@ -20,39 +20,41 @@ typedef struct Game Game;
 
 typedef enum
 {
-    GAME_STATE_INIT,
-    GAME_STATE_MENU,
     GAME_STATE_GAMEPLAY,
     GAME_STATE_PAUSED,
-    GAME_STATE_GAME_OVER,
 	GAME_STATE_QUIT
 } GameState;
 
 struct Game
 {
+	/* State */
     GameState state;
 
-    /* Timing */
-    float accumulator;      /* Time not yet consumed by fixed updates */
-    int   updateCount;     /* How many fixed updates ran this frame (debug) */
+	/* Timing */
+    float accumulator;
+    int updateCount;
 
-    /* Actors */
+	/* Actors */
     Actor *actors[GAME_MAX_ACTORS];
     int    actorCount;
-
     Actor *pendingActors[GAME_MAX_PENDING];
     int    pendingCount;
-
     bool updatingActors;
 
-    /* Debug */
     int actorsCreated;
 
+    /* Scene */
+    Scene* activeScene;
+    Scene* nextScene;
 };
 
-bool GAME_Init(Game* game);
-void GAME_Run(Game* game);
+bool GAME_Init(Game* game, Scene* initialScene);
 void GAME_Shutdown(Game* game);
+void GAME_Run(Game* game);
 
 void GAME_AddActor(Game* game, Actor* actor);
 void GAME_RemoveActor(Game* game, Actor* actor);
+void GAME_RemoveActorByIndex(Game* game, int idx);
+void GAME_RemoveAllActors(Game* game);
+
+void GAME_ChangeScene(Game* game, Scene* scene);

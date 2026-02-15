@@ -1,8 +1,9 @@
 ﻿#include "actor.h"
 #include "component.h"
-#include "demo.h"
+#include "debug.h"
+#include "mesh_component.h"
+#include "scene.h"
 #include "game.h"
-#include "rlgl.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,17 +12,10 @@
 static void GAME_ProcessInput(Game* game);
 static void GAME_FixedUpdate(Game* game, float deltaTime);
 static void GAME_Render(Game* game);
+static void GAME_DrawMeshComponents(Game* game); // TODO: Move to renderer subsystem if we add one
+static void GAME_ApplyNextScene(Game* game); // TODO: Move to scene manager subsystem if we add one
 
-static void GAME_RemoveActorByIndex(Game *game, int idx) 
-{
-    if(!game || idx < 0 || idx >= game->actorCount) return;
-
-    game->actors[idx] = game->actors[game->actorCount - 1];
-    game->actors[game->actorCount - 1] = NULL;
-    game->actorCount--;
-}
-
-bool GAME_Init(Game* game) 
+bool GAME_Init(Game* game, Scene* initialScene) 
 {
     if (!game)
     {
@@ -34,6 +28,7 @@ bool GAME_Init(Game* game)
 	game->accumulator = 0.0f;
 	game->updateCount = 0;
 
+	// TODO: Move this to a renderer subsystem if we add one
 	/* Initialize Raylib window and settings */
 	InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, GAME_TITLE);
     if (!IsWindowReady())
@@ -45,29 +40,65 @@ bool GAME_Init(Game* game)
     SetWindowState(FLAG_VSYNC_HINT);
 	SetTargetFPS(RENDER_FPS);
 
-    DEMO_Init(game);
+    DEBUG_Init();
+
+    /* Initialize the first scene */
+    game->activeScene = initialScene;
+    if (initialScene && initialScene->SCENE_Init) 
+    {
+        initialScene->SCENE_Init(game);
+    }
+
     TraceLog(LOG_INFO, "Game initialized - Updates: %dHz, Rendering: %dFPS",
         UPDATE_RATE, GetFPS());
 
 	return true;
 }
 
+void GAME_Shutdown(Game* game)
+{
+    if (!game)
+    {
+        TraceLog(LOG_ERROR, "GAME_Shutdown: game pointer is NULL");
+        return;
+    }
+
+    GAME_RemoveAllActors(game);
+
+    if (game->activeScene && game->activeScene->SCENE_Shutdown) 
+    {
+        game->activeScene->SCENE_Shutdown(game);
+    }
+    game->activeScene = NULL;
+
+    CloseWindow();
+
+    TraceLog(LOG_INFO, "Game shutdown - Time: %.2fs",
+        GetTime());
+}
+
 void GAME_Run(Game* game)
 {
     if (!game)
     {
-        TraceLog(LOG_ERROR, "GAME_RunLoop: game pointer is NULL");
+        TraceLog(LOG_ERROR, "GAME_Run: game pointer is NULL");
         return;
     }
 
     while (!WindowShouldClose() && game->state != GAME_STATE_QUIT)
     {
+        if (game->nextScene) 
+        {
+            GAME_ApplyNextScene(game);
+        }
+
         float frameTime = GetFrameTime();
         if (frameTime > MAX_DELTA_TIME)
         {
             frameTime = MAX_DELTA_TIME;
         }
 
+		DEBUG_Update(game);
         GAME_ProcessInput(game);
 
         game->accumulator += frameTime;
@@ -85,45 +116,28 @@ void GAME_Run(Game* game)
     }
 }
 
-void GAME_Shutdown(Game* game) 
-{
-    if (!game)
-    {
-        TraceLog(LOG_ERROR, "GAME_Shutdown: game pointer is NULL");
-        return;
-    }
-
-    DEMO_Shutdown(game);
-
-    for (int i = game->actorCount - 1; i >= 0; i--) 
-    {
-        ACTOR_Destroy(game->actors[i]);
-    }
-    game->actorCount = 0;
-
-    for( int i = 0; i < game->pendingCount; i++) 
-    {
-        ACTOR_Destroy(game->pendingActors[i]);
-    }
-    game->pendingCount = 0;
-
-    CloseWindow();
-
-    TraceLog(LOG_INFO, "Game shutdown - Time: %.2fs",
-        GetTime());
-}
-
 void GAME_ProcessInput(Game* game)
 {
 	assert(game != NULL);
+
+    if (IsKeyPressed(KEY_P)) 
+    {
+        if (game->state == GAME_STATE_GAMEPLAY)
+            game->state = GAME_STATE_PAUSED;
+        else if (game->state == GAME_STATE_PAUSED)
+            game->state = GAME_STATE_GAMEPLAY;
+    }
 
     if (IsKeyPressed(KEY_ESCAPE)) 
     {
         game->state = GAME_STATE_QUIT;
     }
 
-    /* Demo-specific input */
-    DEMO_ProcessInput(game);
+    /* Scene-specific input */
+    if (game->activeScene && game->activeScene->SCENE_ProcessInput) 
+    {
+        game->activeScene->SCENE_ProcessInput(game);
+    }
 
     /* Dispatch to actors */
     if (game->state == GAME_STATE_GAMEPLAY) 
@@ -160,6 +174,7 @@ void GAME_FixedUpdate(Game* game, float deltaTime)
         if (game->actorCount < GAME_MAX_ACTORS) 
         {
             game->actors[game->actorCount++] = pending;
+			game->pendingActors[i] = NULL;
         } 
         else 
         {
@@ -181,17 +196,18 @@ void GAME_FixedUpdate(Game* game, float deltaTime)
     }
 }
 
-static const char* StateName(GameState state) 
+static void GAME_DrawMeshComponents(Game* game) 
 {
-    switch (state) 
+    for (int i = 0; i < game->actorCount; i++) 
     {
-	case GAME_STATE_INIT:    return "INIT";
-	case GAME_STATE_MENU:    return "MENU";
-    case GAME_STATE_GAMEPLAY: return "GAMEPLAY";
-    case GAME_STATE_PAUSED:  return "PAUSED";
-	case GAME_STATE_GAME_OVER: return "GAME_OVER";
-    case GAME_STATE_QUIT:    return "QUIT";
-    default:                 return "UNKNOWN";
+        Actor* actor = game->actors[i];
+        if (actor->state != ACTOR_STATE_ACTIVE) continue;
+
+        Component* comp = ACTOR_GetComponentOfType(actor, COMPONENT_MESH);
+        if (comp) 
+        {
+            MESH_COMPONENT_Draw(comp);
+        }
     }
 }
 
@@ -201,70 +217,60 @@ void GAME_Render(Game* game)
 
     Color bg;
     switch (game->state) {
-        case GAME_STATE_GAMEPLAY: bg = (Color){ 20, 20, 40, 255 };  break;
-        case GAME_STATE_PAUSED:  bg = (Color){ 40, 20, 20, 255 };  break;
-        default:                 bg = BLACK;                         break;
+    case GAME_STATE_GAMEPLAY: bg = (Color){ 20, 20, 40, 255 };  break;
+    case GAME_STATE_PAUSED:  bg = (Color){ 40, 20, 20, 255 };  break;
+    default:                 bg = BLACK;                         break;
     }
 
     BeginDrawing();
-    ClearBackground(bg);
+        ClearBackground(bg);
 
-    /* ── 3D scene ── */
-    {
-        Camera3D camera = {
-            .position   = (Vector3){ 15.0f, 12.0f, 15.0f },
-            .target     = (Vector3){ 0.0f, 0.0f, 0.0f },
-            .up         = (Vector3){ 0.0f, 1.0f, 0.0f },
-            .fovy       = 45.0f,
-            .projection = CAMERA_PERSPECTIVE,
-        };
+        /* ── 3D scene ── */
+        {
+            Camera3D camera = {
+                .position = (Vector3){ 15.0f, 12.0f, 15.0f },
+                .target = (Vector3){ 0.0f, 0.0f, 0.0f },
+                .up = (Vector3){ 0.0f, 1.0f, 0.0f },
+                .fovy = 45.0f,
+                .projection = CAMERA_PERSPECTIVE,
+            };
 
-        BeginMode3D(camera);
-            DrawGrid(20, 1.0f);
-            DEMO_Render3D(game);
-        EndMode3D();
-    }
+            BeginMode3D(camera);
+                GAME_DrawMeshComponents(game);
 
-    /* ── 2D HUD ── */
-    {
-        int y = 10;
-        const int step = 22;
+                if (game->activeScene && game->activeScene->SCENE_Render3D) 
+                {
+                    game->activeScene->SCENE_Render3D(game);
+                }
+            EndMode3D();
+        }
 
-        /* Engine info */
-        DrawText(TextFormat("FPS: %d (target: %d)", GetFPS(), RENDER_FPS),
-                 10, y, 18, GREEN);
-        y += step;
+        /* ── 2D: Scene HUD ── */
+        {
+            int y = 10;
 
-        DrawText(TextFormat("Update Hz: %d | Ticks this frame: %d",
-                 UPDATE_RATE, game->updateCount),
-                 10, y, 18, GREEN);
-        y += step;
+            if (game->activeScene && game->activeScene->SCENE_RenderHUD) 
+            {
+                y = game->activeScene->SCENE_RenderHUD(game, y);
+            }
 
-        DrawText(TextFormat("Actors: %d / %d  (total: %d)",
-                 game->actorCount, GAME_MAX_ACTORS, game->actorsCreated),
-                 10, y, 18, GREEN);
-        y += step;
+            DrawText("  ESC - Quit   P - Pause   F1 - Debug",
+                10, y, 16, (Color) { 120, 120, 120, 200 });
+        }
 
-        DrawText(TextFormat("State: %s", StateName(game->state)),
-                 10, y, 18, YELLOW);
-        y += step * 2;
+        /* ── 2D: Pause overlay ── */
+        if (game->state == GAME_STATE_PAUSED) 
+        {
+            const char* msg = "PAUSED";
+            int w = MeasureText(msg, 60);
+            DrawText(msg,
+                SCREEN_WIDTH / 2 - w / 2,
+                SCREEN_HEIGHT / 2 - 30,
+                60, RED);
+        }
 
-        /* Demo-specific HUD */
-        y = DEMO_RenderHUD(game, y);
-
-        /* Engine controls (always at the bottom of demo HUD) */
-        DrawText("  ESC - Toggle pause   Q - Quit",
-                 10, y, 16, LIGHTGRAY);
-    }
-
-    if (game->state == GAME_STATE_PAUSED) {
-        const char *msg = "PAUSED";
-        int w = MeasureText(msg, 60);
-        DrawText(msg,
-                 SCREEN_WIDTH / 2 - w / 2,
-                 SCREEN_HEIGHT / 2 - 30,
-                 60, RED);
-    }
+        /* ── 2D: Debug overlay (on top of everything) ── */
+        DEBUG_Render(game);
 
     EndDrawing();
 }
@@ -282,15 +288,19 @@ void GAME_AddActor(Game* game, Actor* actor)
         if (game->pendingCount < GAME_MAX_PENDING) 
         {
             game->pendingActors[game->pendingCount++] = actor;
-        } else 
+        } 
+        else 
         {
             TraceLog(LOG_WARNING, "GAME: Pending actor list full (%d)", GAME_MAX_PENDING);
         }
-    } else {
+    }
+    else
+    {
         if (game->actorCount < GAME_MAX_ACTORS) 
         {
             game->actors[game->actorCount++] = actor;
-        } else 
+        } 
+        else 
         {
             TraceLog(LOG_WARNING, "GAME: Actor list full (%d)", GAME_MAX_ACTORS);
         }
@@ -300,4 +310,80 @@ void GAME_AddActor(Game* game, Actor* actor)
 
 void GAME_RemoveActor(Game* game, Actor* actor) 
 {
+    if (!game || !actor) 
+    {
+        TraceLog(LOG_ERROR, "GAME_RemoveActor: game or actor pointer is NULL");
+        return;
+    }
+
+    for (int i = 0; i < game->actorCount; i++) 
+    {
+        if (game->actors[i] == actor) 
+        {
+            GAME_RemoveActorByIndex(game, i);
+            return;
+        }
+    }
+}
+
+void GAME_RemoveActorByIndex(Game* game, int idx)
+{
+    if (!game || idx < 0 || idx >= game->actorCount) return;
+
+    game->actors[idx] = game->actors[game->actorCount - 1];
+    game->actors[game->actorCount - 1] = NULL;
+    game->actorCount--;
+}
+
+void GAME_RemoveAllActors(Game* game)
+{
+    for (int i = game->actorCount - 1; i >= 0; i--) 
+    {
+        ACTOR_Destroy(game->actors[i]);
+    }
+    game->actorCount = 0;
+
+    for (int i = 0; i < game->pendingCount; i++) 
+    {
+        ACTOR_Destroy(game->pendingActors[i]);
+    }
+    game->pendingCount = 0;
+}
+
+void GAME_ChangeScene(Game* game, Scene* scene)
+{
+   if (!game || !scene) 
+    {
+        TraceLog(LOG_ERROR, "GAME_ChangeScene: game or scene pointer is NULL");
+        return;
+    }
+
+   game->nextScene = scene;
+}
+
+static void GAME_ApplyNextScene(Game* game) 
+{
+	assert(game != NULL);
+
+    Scene* newScene = game->nextScene;
+    game->nextScene = NULL;
+
+    /* Shutdown current */
+    GAME_RemoveAllActors(game);
+    if (game->activeScene && game->activeScene->SCENE_Shutdown) 
+    {
+        game->activeScene->SCENE_Shutdown(game);
+    }
+
+    /* Reset state for the new scene */
+    game->state = GAME_STATE_GAMEPLAY;
+    game->accumulator = 0.0f;
+    game->actorsCreated = 0;
+
+    /* Init new */
+    game->activeScene = newScene;
+    if (newScene && newScene->SCENE_Init) 
+    {
+        newScene->SCENE_Init(game);
+    }
 }
