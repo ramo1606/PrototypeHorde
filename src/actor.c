@@ -6,7 +6,7 @@
 #include <assert.h>
 #include <math.h>
 
-const char* ActorTypeNames[NUM_ACTOR_TYPES] = 
+static const char* ActorTypeNames[NUM_ACTOR_TYPES] = 
 {
     "Actor",
 	"TPSActor"

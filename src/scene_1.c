@@ -1,6 +1,7 @@
 #include "scene.h"
 #include "game.h"
 #include <assert.h>
+#include <stddef.h>
 
 extern Scene SCENE_2;
 

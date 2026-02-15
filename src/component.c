@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
-const char* ComponentTypeNames[NUM_COMPONENT_TYPES] =
+static const char* ComponentTypeNames[NUM_COMPONENT_TYPES] =
 {
     "Component",
     "MeshComponent",
