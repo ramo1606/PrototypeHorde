@@ -44,9 +44,9 @@ bool GAME_Init(Game* game, Scene* initialScene)
 
     /* Initialize the first scene */
     game->activeScene = initialScene;
-    if (initialScene && initialScene->SCENE_Init) 
+    if (initialScene && initialScene->Init) 
     {
-        initialScene->SCENE_Init(game);
+        initialScene->Init(game);
     }
 
     TraceLog(LOG_INFO, "Game initialized - Updates: %dHz, Rendering: %dFPS",
@@ -65,9 +65,9 @@ void GAME_Shutdown(Game* game)
 
     GAME_RemoveAllActors(game);
 
-    if (game->activeScene && game->activeScene->SCENE_Shutdown) 
+    if (game->activeScene && game->activeScene->Shutdown) 
     {
-        game->activeScene->SCENE_Shutdown(game);
+        game->activeScene->Shutdown(game);
     }
     game->activeScene = NULL;
 
@@ -134,9 +134,9 @@ void GAME_ProcessInput(Game* game)
     }
 
     /* Scene-specific input */
-    if (game->activeScene && game->activeScene->SCENE_ProcessInput) 
+    if (game->activeScene && game->activeScene->ProcessInput) 
     {
-        game->activeScene->SCENE_ProcessInput(game);
+        game->activeScene->ProcessInput(game);
     }
 
     /* Dispatch to actors */
@@ -189,9 +189,7 @@ void GAME_FixedUpdate(Game* game, float deltaTime)
     {
         if (game->actors[i]->state == ACTOR_STATE_DEAD) 
         {
-            Actor *dead = game->actors[i];
-            GAME_RemoveActorByIndex(game, i);
-            ACTOR_Destroy(dead);
+            ACTOR_Destroy(game->actors[i]);
         }
     }
 }
@@ -238,9 +236,9 @@ void GAME_Render(Game* game)
             BeginMode3D(camera);
                 GAME_DrawMeshComponents(game);
 
-                if (game->activeScene && game->activeScene->SCENE_Render3D) 
+                if (game->activeScene && game->activeScene->Render3D) 
                 {
-                    game->activeScene->SCENE_Render3D(game);
+                    game->activeScene->Render3D(game);
                 }
             EndMode3D();
         }
@@ -249,9 +247,9 @@ void GAME_Render(Game* game)
         {
             int y = 10;
 
-            if (game->activeScene && game->activeScene->SCENE_RenderHUD) 
+            if (game->activeScene && game->activeScene->RenderHUD) 
             {
-                y = game->activeScene->SCENE_RenderHUD(game, y);
+                y = game->activeScene->RenderHUD(game, y);
             }
 
             DrawText("  ESC - Quit   P - Pause   F1 - Debug",
@@ -320,19 +318,39 @@ void GAME_RemoveActor(Game* game, Actor* actor)
     {
         if (game->actors[i] == actor) 
         {
-            GAME_RemoveActorByIndex(game, i);
+            GAME_RemoveActiveActorByIndex(game, i);
+            return;
+        }
+    }
+
+    for(int i = 0; i < game->pendingCount; i++)
+    {
+        if (game->pendingActors[i] == actor)
+        {
+			GAME_RemovePendingActorByIndex(game, i);
             return;
         }
     }
 }
 
-void GAME_RemoveActorByIndex(Game* game, int idx)
+void GAME_RemoveActiveActorByIndex(Game* game, int idx)
 {
+	assert(game != NULL);
     if (!game || idx < 0 || idx >= game->actorCount) return;
 
     game->actors[idx] = game->actors[game->actorCount - 1];
     game->actors[game->actorCount - 1] = NULL;
     game->actorCount--;
+}
+
+void GAME_RemovePendingActorByIndex(Game* game, int idx)
+{
+	assert(game != NULL);
+    if (!game || idx < 0 || idx >= game->pendingCount) return;
+
+    game->pendingActors[idx] = game->pendingActors[game->pendingCount - 1];
+    game->pendingActors[game->pendingCount - 1] = NULL;
+    game->pendingCount--;
 }
 
 void GAME_RemoveAllActors(Game* game)
@@ -341,13 +359,11 @@ void GAME_RemoveAllActors(Game* game)
     {
         ACTOR_Destroy(game->actors[i]);
     }
-    game->actorCount = 0;
 
     for (int i = 0; i < game->pendingCount; i++) 
     {
         ACTOR_Destroy(game->pendingActors[i]);
     }
-    game->pendingCount = 0;
 }
 
 void GAME_ChangeScene(Game* game, Scene* scene)
@@ -370,9 +386,9 @@ static void GAME_ApplyNextScene(Game* game)
 
     /* Shutdown current */
     GAME_RemoveAllActors(game);
-    if (game->activeScene && game->activeScene->SCENE_Shutdown) 
+    if (game->activeScene && game->activeScene->Shutdown) 
     {
-        game->activeScene->SCENE_Shutdown(game);
+        game->activeScene->Shutdown(game);
     }
 
     /* Reset state for the new scene */
@@ -382,8 +398,8 @@ static void GAME_ApplyNextScene(Game* game)
 
     /* Init new */
     game->activeScene = newScene;
-    if (newScene && newScene->SCENE_Init) 
+    if (newScene && newScene->Init) 
     {
-        newScene->SCENE_Init(game);
+        newScene->Init(game);
     }
 }

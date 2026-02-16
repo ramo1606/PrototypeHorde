@@ -12,9 +12,9 @@ typedef struct Scene
 {
     const char* name;
 
-    SceneInitFn SCENE_Init;
-    SceneShutdownFn SCENE_Shutdown;
-    SceneInputFn SCENE_ProcessInput;
-    SceneRender3DFn SCENE_Render3D;
-    SceneRenderHUDFn SCENE_RenderHUD;
+    SceneInitFn Init;
+    SceneShutdownFn Shutdown;
+    SceneInputFn ProcessInput;
+    SceneRender3DFn Render3D;
+    SceneRenderHUDFn RenderHUD;
 } Scene;

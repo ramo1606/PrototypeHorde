@@ -26,9 +26,9 @@ void ACTOR_Init(Actor* actor, Game* game)
     actor->worldTransform = MatrixIdentity();
     actor->isDirty = true;
 
-    actor->onUpdate = NULL;
-    actor->onInput = NULL;
-    actor->onDestroy = NULL;
+    actor->Update = NULL;
+    actor->Input = NULL;
+    actor->Destroy = NULL;
 
     actor->componentCount = 0;
     memset(actor->components, 0, sizeof(actor->components));
@@ -45,16 +45,16 @@ void ACTOR_Destroy(Actor* actor)
     while (actor->componentCount > 0) 
     {
         int lastIndex = actor->componentCount - 1;
-        COMPONENT_Destroy(actor->components[lastIndex]);
-        actor->components[lastIndex] = NULL;
-        actor->componentCount--;
+		Component* comp = actor->components[lastIndex];
+        COMPONENT_Destroy(comp);
     }
 
-    if (actor->onDestroy)
+    if (actor->Destroy)
     {
-        actor->onDestroy(actor);
+        actor->Destroy(actor);
     }
 
+	GAME_RemoveActor(actor->game, actor);
 	free(actor);
 }
 
@@ -71,9 +71,9 @@ void ACTOR_Update(Actor* actor, float deltaTime)
 
 	ACTOR_UpdateComponents(actor, deltaTime);
     
-    if (actor->onUpdate)
+    if (actor->Update)
     {
-        actor->onUpdate(actor, deltaTime);
+        actor->Update(actor, deltaTime);
     }
 }
 
@@ -83,9 +83,9 @@ void ACTOR_UpdateComponents(Actor* actor, float deltaTime)
 
     for (int i = 0; i < actor->componentCount; i++)
     {
-        if (actor->components[i]->onUpdate)
+        if (actor->components[i]->Update)
         {
-            actor->components[i]->onUpdate(actor->components[i], deltaTime);
+            actor->components[i]->Update(actor->components[i], deltaTime);
         }
     }
 }
@@ -98,15 +98,15 @@ void ACTOR_ProcessInput(Actor* actor)
 
     for (int i = 0; i < actor->componentCount; i++) 
     {
-        if (actor->components[i]->onInput) 
+        if (actor->components[i]->Input) 
         {
-            actor->components[i]->onInput(actor->components[i]);
+            actor->components[i]->Input(actor->components[i]);
         }
     }
 
-    if (actor->onInput) 
+    if (actor->Input) 
     {
-        actor->onInput(actor);
+        actor->Input(actor);
     }
 }
 
@@ -125,9 +125,9 @@ void ACTOR_ComputeWorldTransform(Actor* actor)
 
     for (int i = 0; i < actor->componentCount; i++) 
     {
-        if (actor->components[i]->onWorldTransform) 
+        if (actor->components[i]->WorldTransform) 
         {
-            actor->components[i]->onWorldTransform(actor->components[i]);
+            actor->components[i]->WorldTransform(actor->components[i]);
         }
     }
 }
@@ -246,7 +246,6 @@ void ACTOR_RemoveComponent(Actor* actor, Component* comp)
             {
                 actor->components[j] = actor->components[j + 1];
             }
-            COMPONENT_Destroy(comp);
             actor->components[actor->componentCount - 1] = NULL;
             actor->componentCount--;
             return;

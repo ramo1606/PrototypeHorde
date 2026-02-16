@@ -36,9 +36,9 @@ static int SCENE_1_RenderHud(Game* game, int y)
 Scene SCENE_1 = 
 {
     .name = "1 - Debug Overlay",
-    .SCENE_Init = NULL,
-    .SCENE_Shutdown = NULL,
-    .SCENE_ProcessInput = SCENE_1_Input,
-    .SCENE_Render3D = NULL,
-    .SCENE_RenderHUD = SCENE_1_RenderHud,
+    .Init = NULL,
+    .Shutdown = NULL,
+    .ProcessInput = SCENE_1_Input,
+    .Render3D = NULL,
+    .RenderHUD = SCENE_1_RenderHud,
 };

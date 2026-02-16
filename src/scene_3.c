@@ -30,7 +30,7 @@ static SpinComponent* SPIN_COMPONENT_Create(Actor* owner, float speed)
     SpinComponent* s = malloc(sizeof(SpinComponent));
     if (!s) return NULL;
     COMPONENT_Init(&s->base, owner, COMPONENT_NONE, 100);
-    s->base.onUpdate = SpinUpdate;
+    s->base.Update = SpinUpdate;
     s->angularSpeed = speed;
     return s;
 }
@@ -61,7 +61,7 @@ static BobComponent* BOB_COMPONENT_Create(Actor* owner, float base_y,
     BobComponent* b = malloc(sizeof(BobComponent));
     if (!b) return NULL;
     COMPONENT_Init(&b->base, owner, COMPONENT_NONE, 50);
-    b->base.onUpdate = BobUpdate;
+    b->base.Update = BobUpdate;
     b->bobTime = 0; b->baseY = base_y;
     b->amplitude = amp; b->frequency = freq;
     return b;
@@ -110,7 +110,7 @@ static void SCENE_3_Init(Game* game)
         Actor* a = malloc(sizeof(Actor));
 		if (!a) return;
         ACTOR_Init(a, game);
-		a->position = (Vector3){ 0, -0.01, 0 };
+		ACTOR_SetPosition(a, (Vector3) { 0, -0.001f, 0 });
         MeshComponent* mc = MESH_COMPONENT_Create(a, &SMeshes[MESH_FLOOR], &SMaterial);
 		mc->tint = GRAY;
     }
@@ -264,9 +264,9 @@ static int SCENE_3_RenderHUD(Game* game, int y)
 Scene SCENE_3 = 
 {
     .name = "3 - MeshComponent",
-    .SCENE_Init = SCENE_3_Init,
-    .SCENE_Shutdown = SCENE_3_Shutdown,
-    .SCENE_ProcessInput = SCENE_3_Input,
-    .SCENE_Render3D = SCENE_3_Render3D,
-    .SCENE_RenderHUD = SCENE_3_RenderHUD,
+    .Init = SCENE_3_Init,
+    .Shutdown = SCENE_3_Shutdown,
+    .ProcessInput = SCENE_3_Input,
+    .Render3D = SCENE_3_Render3D,
+    .RenderHUD = SCENE_3_RenderHUD,
 };

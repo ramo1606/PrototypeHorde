@@ -19,20 +19,7 @@ MeshComponent* MESH_COMPONENT_Create(Actor* owner, Mesh* mesh, Material* materia
 	self->tint = WHITE;
     self->visible = true;
 
-    self->base.onDestroy = (ComponentDestroyFn)MESH_COMPONENT_Destroy;
-
     return self;
-}
-
-void MESH_COMPONENT_Destroy(Component* mc)
-{
-	assert(mc != NULL);
-
-    if(mc->type == COMPONENT_MESH)
-    {
-        MeshComponent* meshComponent = (MeshComponent*)mc;
-        free(meshComponent);
-    }
 }
 
 void MESH_COMPONENT_Draw(Component* mc)

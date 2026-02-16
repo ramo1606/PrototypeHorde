@@ -13,8 +13,6 @@ typedef enum
     NUM_COMPONENT_TYPES
 } ComponentType;
 
-static const char* ComponentTypeNames[NUM_COMPONENT_TYPES];
-
 typedef void (*ComponentUpdateFn)(Component* self, float deltaTime);
 typedef void (*ComponentInputFn)(Component* self);
 typedef void (*ComponentTransformFn)(Component* self);
@@ -26,10 +24,10 @@ struct Component
     ComponentType type;
     int           updateOrder;
 
-    ComponentUpdateFn    onUpdate;
-    ComponentInputFn     onInput;
-    ComponentTransformFn onWorldTransform;
-    ComponentDestroyFn   onDestroy;
+    ComponentUpdateFn    Update;
+    ComponentInputFn     Input;
+    ComponentTransformFn WorldTransform;
+    ComponentDestroyFn   Destroy;
 };
 
 void COMPONENT_Init(Component* comp, Actor* owner, ComponentType type, int updateOrder);

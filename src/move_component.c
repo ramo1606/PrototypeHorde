@@ -49,7 +49,7 @@ MoveComponent* MOVE_COMPONENT_Create(Actor* owner)
     if (!mc) return NULL;
 
     COMPONENT_Init(&mc->base, owner, COMPONENT_MOVE, 10);
-    mc->base.onUpdate = MoveUpdate;
+    mc->base.Update = MoveUpdate;
 
     mc->angularSpeed = 0.0f;
     mc->forwardSpeed = 0.0f;

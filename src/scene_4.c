@@ -75,7 +75,7 @@ static void SCENE_4_Init(Game* game)
         Actor* a = malloc(sizeof(Actor));
         if (!a) return;
         ACTOR_Init(a, game);
-        a->position = (Vector3){ 0, -0.01, 0 };
+        ACTOR_SetPosition(a, (Vector3) { 0, -0.001f, 0 });
         MeshComponent* mc = MESH_COMPONENT_Create(a, &SMeshes[MESH_FLOOR], &SMaterial);
 		mc->tint = GRAY;
     }
@@ -91,7 +91,7 @@ static void SCENE_4_Init(Game* game)
         mc->tint = GREEN;
 
         MOVE_COMPONENT_Create(SPlayer);
-        SPlayer->onInput = PlayerInput;
+        SPlayer->Input = PlayerInput;
     }
 
     /* Pre-spawn a few wanderers */
@@ -227,9 +227,9 @@ static int SCENE_4_RenderHUD(Game* game, int y)
 Scene SCENE_4 = 
 {
     .name = "4 - MoveComponent",
-    .SCENE_Init = SCENE_4_Init,
-    .SCENE_Shutdown = SCENE_4_Shutdown,
-    .SCENE_ProcessInput = SCENE_4_Input,
-    .SCENE_Render3D = SCENE_4_Render3D,
-    .SCENE_RenderHUD = SCENE_4_RenderHUD,
+    .Init = SCENE_4_Init,
+    .Shutdown = SCENE_4_Shutdown,
+    .ProcessInput = SCENE_4_Input,
+    .Render3D = SCENE_4_Render3D,
+    .RenderHUD = SCENE_4_RenderHUD,
 };

@@ -54,7 +54,8 @@ void GAME_Run(Game* game);
 
 void GAME_AddActor(Game* game, Actor* actor);
 void GAME_RemoveActor(Game* game, Actor* actor);
-void GAME_RemoveActorByIndex(Game* game, int idx);
+void GAME_RemoveActiveActorByIndex(Game* game, int idx);
+void GAME_RemovePendingActorByIndex(Game* game, int idx);
 void GAME_RemoveAllActors(Game* game);
 
 void GAME_ChangeScene(Game* game, Scene* scene);

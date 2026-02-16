@@ -24,8 +24,6 @@ typedef enum
     NUM_ACTOR_TYPES
 } ActorType;
 
-static const char* ActorTypeNames[NUM_ACTOR_TYPES];
-
 typedef void (*ActorUpdateFn)(Actor* self, float deltaTime);
 typedef void (*ActorInputFn)(Actor* self);
 typedef void (*ActorDestroyFn)(Actor* self);
@@ -44,9 +42,9 @@ struct Actor
     bool isDirty;
 
     /* Virtual Functtions */
-    ActorUpdateFn onUpdate;
-    ActorInputFn onInput;
-    ActorDestroyFn onDestroy;
+    ActorUpdateFn Update;
+    ActorInputFn Input;
+    ActorDestroyFn Destroy;
 
     /* Components List */
     Component* components[ACTOR_MAX_COMPONENTS];

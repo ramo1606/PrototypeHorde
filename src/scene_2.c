@@ -113,9 +113,9 @@ static int SCENE_2_RenderHud(Game* game, int y)
 
 Scene SCENE_2 = {
     .name = "2 - Actor Lifecycle",
-    .SCENE_Init = SCENE_2_Init,
-    .SCENE_Shutdown = SCENE_2_Shutdown,
-    .SCENE_ProcessInput = SCENE_2_Input,
-    .SCENE_Render3D = SCENE_2_Render3D,
-    .SCENE_RenderHUD = SCENE_2_RenderHud
+    .Init = SCENE_2_Init,
+    .Shutdown = SCENE_2_Shutdown,
+    .ProcessInput = SCENE_2_Input,
+    .Render3D = SCENE_2_Render3D,
+    .RenderHUD = SCENE_2_RenderHud
 };
