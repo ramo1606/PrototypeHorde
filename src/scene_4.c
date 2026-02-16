@@ -72,9 +72,8 @@ static void SCENE_4_Init(Game* game)
 
     /* Floor */
     {
-        Actor* a = malloc(sizeof(Actor));
+        Actor* a = ACTOR_Create(game);
         if (!a) return;
-        ACTOR_Init(a, game);
         ACTOR_SetPosition(a, (Vector3) { 0, -0.001f, 0 });
         MeshComponent* mc = MESH_COMPONENT_Create(a, &SMeshes[MESH_FLOOR], &SMaterial);
 		mc->tint = GRAY;
@@ -82,9 +81,8 @@ static void SCENE_4_Init(Game* game)
 
     /* Player */
     {
-        SPlayer = malloc(sizeof(Actor));
+        SPlayer = ACTOR_Create(game);
         if(!SPlayer) return;
-        ACTOR_Init(SPlayer, game);
         ACTOR_SetPosition(SPlayer, (Vector3) { 0, 0.5f, 0 });
 
         MeshComponent* mc = MESH_COMPONENT_Create(SPlayer, &SMeshes[MESH_CUBE], &SMaterial);
@@ -98,8 +96,8 @@ static void SCENE_4_Init(Game* game)
     Color colors[] = { RED, BLUE, ORANGE, PURPLE, SKYBLUE, YELLOW };
     for (int i = 0; i < 4; i++) 
     {
-        Actor* a = malloc(sizeof(Actor));
-        ACTOR_Init(a, game);
+        Actor* a = ACTOR_Create(game);
+        if (!a) return;
         float angle = (float)i * (2.0f * PI / 4.0f);
         ACTOR_SetPosition(a, (Vector3) 
         {
@@ -133,10 +131,9 @@ static void SCENE_4_Input(Game* game)
     /* Spawn wandering actor */
     if (IsKeyPressed(KEY_SPACE)) 
     {
-        Actor* a = malloc(sizeof(Actor));
+        Actor* a = ACTOR_Create(game);
         if (a) 
         {
-            ACTOR_Init(a, game);
 			float x = (float)GetRandomValue(-10, 10);
 			float z = (float)GetRandomValue(-10, 10);
             ACTOR_SetPosition(a, (Vector3) { x, 0.5f, z });

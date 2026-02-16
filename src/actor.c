@@ -12,6 +12,19 @@ static const char* ActorTypeNames[NUM_ACTOR_TYPES] =
 	"TPSActor"
 };
 
+static void ACTOR_Init(Actor* actor, Game* game);
+
+Actor* ACTOR_Create(Game* game)
+{
+    assert(game != NULL);
+
+    Actor* actor = MEMORY_AllocActor(&game->memory);
+    if (!actor) return NULL;
+
+    ACTOR_Init(actor, game);
+    return actor;
+}
+
 void ACTOR_Init(Actor* actor, Game* game) 
 {
 	assert(actor != NULL);
@@ -55,7 +68,7 @@ void ACTOR_Destroy(Actor* actor)
     }
 
 	GAME_RemoveActor(actor->game, actor);
-	free(actor);
+    MEMORY_FreeActor(&actor->game->memory, actor);
 }
 
 void ACTOR_Update(Actor* actor, float deltaTime) 

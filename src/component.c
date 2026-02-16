@@ -1,5 +1,7 @@
 #include "component.h"
 #include "actor.h"
+#include "memory.h"
+#include "game.h"
 #include <stdlib.h>
 #include <assert.h>
 
@@ -38,5 +40,5 @@ void COMPONENT_Destroy(Component* comp)
 
 	ACTOR_RemoveComponent(comp->owner, comp);
 
-	free(comp);
+	MEMORY_FreeComponent(&(comp->owner->game->memory), comp);
 }

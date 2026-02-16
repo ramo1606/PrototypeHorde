@@ -5,6 +5,7 @@
 #include "game.h"
 #include "actor.h"
 #include "scene.h"
+#include "memory.h"
 #include "raylib.h"
 
 #define FPS_HISTORY_SIZE 120  /* 2 seconds at 60fps */
@@ -104,79 +105,111 @@ void DEBUG_Render(Game* game)
         return;
     }
 
-    const int panel_x = GetScreenWidth() - 280;
-    const int panel_y = 10;
-    const int panel_w = 270;
+    const int panelX = GetScreenWidth() - 280;
+    const int panelY = 10;
+    const int panelW = 270;
     const int row = 20;
-    int y = panel_y;
+    int y = panelY;
 
     /* Panel background */
-    DrawRectangle(panel_x - 5, panel_y - 5, panel_w + 10, 340,
+    DrawRectangle(panelX - 5, panelY - 5, panelW + 10, 420,
         (Color) {
         10, 10, 10, 200
     });
-    DrawRectangleLines(panel_x - 5, panel_y - 5, panel_w + 10, 340,
+    DrawRectangleLines(panelX - 5, panelY - 5, panelW + 10, 420,
         (Color) {
         80, 80, 80, 200
     });
 
-    DrawText("DEBUG", panel_x, y, 16, WHITE);
-    DrawText("[F1 toggle]", panel_x + 60, y + 2, 12, GRAY);
+    DrawText("DEBUG", panelX, y, 16, WHITE);
+    DrawText("[F1 toggle]", panelX + 60, y + 2, 12, GRAY);
     y += row + 4;
 
     DrawText(TextFormat("FPS: %d  (%.1f ms)", GetFPS(), Debug.frameTimeMs),
-        panel_x, y, 14, GREEN);
+        panelX, y, 14, GREEN);
     y += row;
 
     DrawText(TextFormat("Target: %d fps", RENDER_FPS),
-        panel_x, y, 14, GRAY);
+        panelX, y, 14, GRAY);
     y += row + 4;
 
-    DEBUG_DrawFPSGraph(panel_x, y, panel_w, 60, RENDER_FPS);
+    DEBUG_DrawFPSGraph(panelX, y, panelW, 60, RENDER_FPS);
     y += 60 + 8;
 
     /* ── Timing section ── */
-    GuiLine((Rectangle) { panel_x, y, panel_w, 1 }, "Timing");
+    GuiLine((Rectangle) { panelX, y, panelW, 1 }, "Timing");
     y += row;
 
     DrawText(TextFormat("Update Hz: %d  (%0.4f s)",
         UPDATE_RATE, FIXED_TIMESTEP),
-        panel_x, y, 14, LIGHTGRAY);
+        panelX, y, 14, LIGHTGRAY);
     y += row;
 
     DrawText(TextFormat("Ticks this frame: %d", game->updateCount),
-        panel_x, y, 14, LIGHTGRAY);
+        panelX, y, 14, LIGHTGRAY);
     y += row;
 
     DrawText(TextFormat("Accumulator: %.4f s", game->accumulator),
-        panel_x, y, 14, LIGHTGRAY);
+        panelX, y, 14, LIGHTGRAY);
     y += row + 4;
 
     /* ── Scene & Actors ── */
-    GuiLine((Rectangle) { panel_x, y, panel_w, 1 }, "World");
+    GuiLine((Rectangle) { panelX, y, panelW, 1 }, "World");
     y += row;
 
     const char* scene_name = game->activeScene ? game->activeScene->name : "(none)";
     DrawText(TextFormat("Scene: %s", scene_name),
-        panel_x, y, 14, YELLOW);
+        panelX, y, 14, YELLOW);
     y += row;
 
     DrawText(TextFormat("State: %s", StateName(game->state)),
-        panel_x, y, 14, YELLOW);
+        panelX, y, 14, YELLOW);
     y += row;
 
     DrawText(TextFormat("Actors: %d / %d",
         game->actorCount, GAME_MAX_ACTORS),
-        panel_x, y, 14, LIGHTGRAY);
+        panelX, y, 14, LIGHTGRAY);
     y += row;
 
     DrawText(TextFormat("Pending: %d / %d",
         game->pendingCount, GAME_MAX_PENDING),
-        panel_x, y, 14, LIGHTGRAY);
+        panelX, y, 14, LIGHTGRAY);
     y += row;
 
     DrawText(TextFormat("Total created: %d", game->actorsCreated),
-        panel_x, y, 14, LIGHTGRAY);
+        panelX, y, 14, LIGHTGRAY);
+    y += row + 4;
+
+    /* ── Memory ── */
+    GuiLine((Rectangle){ panelX, y, panelW, 1 }, "Memory");
+    y += row;
+
+    /* Actor pool: total - free = used */
+    int actorPoolTotal = (int)game->memory.actorPool.memSize;
+    int actorPoolFree  = (int)game->memory.actorPool.freeBlocks;
+    int actorPoolUsed  = actorPoolTotal - actorPoolFree;
+
+    Color actorColor = LIGHTGRAY;
+    float actorUsage = (actorPoolTotal > 0) ? (float)actorPoolUsed / actorPoolTotal : 0;
+    if (actorUsage > 0.9f) actorColor = RED;
+    else if (actorUsage > 0.7f) actorColor = YELLOW;
+
+    DrawText(TextFormat("Actor pool: %d / %d", actorPoolUsed, actorPoolTotal),
+        panelX, y, 14, actorColor);
+    y += row;
+
+    /* Component pool: free memory */
+    size_t compFree = GetMemPoolFreeMemory(game->memory.componentPool);
+    size_t compTotal = COMPONENT_POOL_BYTES;
+    size_t compUsed = compTotal - compFree;
+
+    Color compColor = LIGHTGRAY;
+    float compUsage = (compTotal > 0) ? (float)compUsed / compTotal : 0;
+    if (compUsage > 0.9f) compColor = RED;
+    else if (compUsage > 0.7f) compColor = YELLOW;
+
+    DrawText(TextFormat("Comp pool: %zu / %zu bytes", compUsed, compTotal),
+        panelX, y, 14, compColor);
 }
 
 bool DEBUG_IsVisible(void)

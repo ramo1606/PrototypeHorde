@@ -27,7 +27,8 @@ static void SpinUpdate(Component* self, float deltaTime)
 
 static SpinComponent* SPIN_COMPONENT_Create(Actor* owner, float speed) 
 {
-    SpinComponent* s = malloc(sizeof(SpinComponent));
+    SpinComponent* s = (SpinComponent*)MEMORY_AllocComponent(
+        &owner->game->memory, sizeof(SpinComponent));
     if (!s) return NULL;
     COMPONENT_Init(&s->base, owner, COMPONENT_NONE, 100);
     s->base.Update = SpinUpdate;
@@ -58,7 +59,8 @@ static BobComponent* BOB_COMPONENT_Create(Actor* owner, float base_y,
     float amp, float freq) 
 {
 	assert(owner != NULL);
-    BobComponent* b = malloc(sizeof(BobComponent));
+    BobComponent* b = (BobComponent*)MEMORY_AllocComponent(
+        &owner->game->memory, sizeof(BobComponent));
     if (!b) return NULL;
     COMPONENT_Init(&b->base, owner, COMPONENT_NONE, 50);
     b->base.Update = BobUpdate;
@@ -107,9 +109,8 @@ static void SCENE_3_Init(Game* game)
 
     /* Floor */
     {
-        Actor* a = malloc(sizeof(Actor));
+        Actor* a = ACTOR_Create(game);
 		if (!a) return;
-        ACTOR_Init(a, game);
 		ACTOR_SetPosition(a, (Vector3) { 0, -0.001f, 0 });
         MeshComponent* mc = MESH_COMPONENT_Create(a, &SMeshes[MESH_FLOOR], &SMaterial);
 		mc->tint = GRAY;
@@ -118,16 +119,16 @@ static void SCENE_3_Init(Game* game)
     /* Static cubes sharing the same Mesh */
     for (int i = 0; i < 5; i++) 
     {
-        Actor* a = malloc(sizeof(Actor));
-        ACTOR_Init(a, game);
+        Actor* a = ACTOR_Create(game);
+        if (!a) return;
         ACTOR_SetPosition(a, (Vector3) { (float)(i * 3 - 6), 0.5f, 0 });
         MESH_COMPONENT_Create(a, &SMeshes[MESH_CUBE], &SMaterial);
     }
 
     /* Spinning sphere */
     {
-        Actor* a = malloc(sizeof(Actor));
-        ACTOR_Init(a, game);
+        Actor* a = ACTOR_Create(game);
+        if (!a) return;
         ACTOR_SetPosition(a, (Vector3) { 0, 1, 5 });
         ACTOR_SetScale(a, 2.0f);
         MeshComponent* mc = MESH_COMPONENT_Create(a, &SMeshes[MESH_SPHERE], &SMaterial);
@@ -137,8 +138,8 @@ static void SCENE_3_Init(Game* game)
 
     /* Bobbing cylinder */
     {
-        Actor* a = malloc(sizeof(Actor));
-        ACTOR_Init(a, game);
+        Actor* a = ACTOR_Create(game);
+        if (!a) return;
         ACTOR_SetPosition(a, (Vector3) { 0, 1, -5 });
         ACTOR_SetScale(a, 1.5f);
         MeshComponent* mc = MESH_COMPONENT_Create(a, &SMeshes[MESH_CYLINDER], &SMaterial);
@@ -148,8 +149,8 @@ static void SCENE_3_Init(Game* game)
 
     /* Spinning + bobbing cube (full composition) */
     {
-        Actor* a = malloc(sizeof(Actor));
-        ACTOR_Init(a, game);
+        Actor* a = ACTOR_Create(game);
+        if (!a) return;
         ACTOR_SetPosition(a, (Vector3) { 5, 1.5f, 0 });
         ACTOR_SetScale(a, 1.2f);
         MeshComponent* mc = MESH_COMPONENT_Create(a, &SMeshes[MESH_CUBE], &SMaterial);
@@ -173,10 +174,9 @@ static void SCENE_3_Input(Game* game)
 
     if (IsKeyPressed(KEY_SPACE)) 
     {
-        Actor* a = malloc(sizeof(Actor));
+        Actor* a = ACTOR_Create(game);
         if (a) 
         {
-            ACTOR_Init(a, game);
             float x = (float)GetRandomValue(-8, 7);
             float z = (float)GetRandomValue(-8, 7);
             ACTOR_SetPosition(a, (Vector3) { x, 0.5f, z });
@@ -190,10 +190,9 @@ static void SCENE_3_Input(Game* game)
 
     if (IsKeyPressed(KEY_S)) 
     {
-        Actor* a = malloc(sizeof(Actor));
+        Actor* a = ACTOR_Create(game);
         if (a) 
         {
-            ACTOR_Init(a, game);
             float x = (float)GetRandomValue(-8, 7);
             float z = (float)GetRandomValue(-8, 7);
             ACTOR_SetPosition(a, (Vector3) { x, 0.8f, z });

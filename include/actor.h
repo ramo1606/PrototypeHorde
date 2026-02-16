@@ -55,7 +55,7 @@ struct Actor
 };
 
 /* Life Cycle */
-void ACTOR_Init(Actor* actor, Game* game);
+Actor* ACTOR_Create(Game* game);
 void ACTOR_Destroy(Actor* actor);
 
 /* Update */

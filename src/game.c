@@ -28,7 +28,8 @@ bool GAME_Init(Game* game, Scene* initialScene)
 	game->accumulator = 0.0f;
 	game->updateCount = 0;
 
-	// TODO: Move this to a renderer subsystem if we add one
+    MEMORY_Init(&game->memory);
+    
 	/* Initialize Raylib window and settings */
 	InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, GAME_TITLE);
     if (!IsWindowReady())
@@ -73,6 +74,8 @@ void GAME_Shutdown(Game* game)
 
     CloseWindow();
 
+    MEMORY_Shutdown(&game->memory);
+    
     TraceLog(LOG_INFO, "Game shutdown - Time: %.2fs",
         GetTime());
 }

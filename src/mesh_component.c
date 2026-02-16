@@ -1,5 +1,6 @@
 #include "mesh_component.h"
 #include "actor.h"
+#include "game.h"
 #include <assert.h>
 #include <stdlib.h>
 
@@ -10,7 +11,7 @@ MeshComponent* MESH_COMPONENT_Create(Actor* owner, Mesh* mesh, Material* materia
     assert(material != NULL);
 
 	//TODO: replace for actual memory management system
-    MeshComponent* self = malloc(sizeof(MeshComponent));
+    MeshComponent* self = (MeshComponent*)MEMORY_AllocComponent(&owner->game->memory, sizeof(MeshComponent));
     if (!self) return NULL;
 
     COMPONENT_Init(&self->base, owner, COMPONENT_MESH, 200);

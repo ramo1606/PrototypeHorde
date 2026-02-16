@@ -1,5 +1,6 @@
 #include "move_component.h"
 #include "actor.h"
+#include "game.h"
 #include "raylib.h"
 #include "raymath.h"
 #include <stdlib.h>
@@ -45,7 +46,7 @@ static void MoveUpdate(Component* self, float deltaTime)
 MoveComponent* MOVE_COMPONENT_Create(Actor* owner)
 {
 	assert(owner != NULL);
-    MoveComponent* mc = malloc(sizeof(MoveComponent));
+    MoveComponent* mc = (MoveComponent*)MEMORY_AllocComponent(&owner->game->memory, sizeof(MoveComponent));
     if (!mc) return NULL;
 
     COMPONENT_Init(&mc->base, owner, COMPONENT_MOVE, 10);

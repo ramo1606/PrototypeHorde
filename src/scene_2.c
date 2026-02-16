@@ -33,8 +33,7 @@ static void SCENE_2_Init(Game* game)
     /* Pre-spawn a few actors */
     for (int i = 0; i < 4; i++) 
     {
-        Actor* a = malloc(sizeof(Actor));
-        ACTOR_Init(a, game);
+        Actor* a = ACTOR_Create(game);
         float angle = (float)i * (2.0f * PI / 4.0f);
         ACTOR_SetPosition(a, (Vector3) { cosf(angle) * 4.0f, 0.5f, sinf(angle) * 4.0f });
         spawnCount++;
@@ -54,10 +53,9 @@ static void SCENE_2_Input(Game* game)
 
     if (IsKeyPressed(KEY_SPACE)) 
     {
-        Actor* a = malloc(sizeof(Actor));
+        Actor* a = ACTOR_Create(game);
         if (a) 
         {
-            ACTOR_Init(a, game);
             float x = (float)GetRandomValue(-8, 7);
             float z = (float)GetRandomValue(-8, 7);
             ACTOR_SetPosition(a, (Vector3) { x, 0.5f, z });
@@ -79,7 +77,7 @@ static void SCENE_2_Input(Game* game)
 static void SCENE_2_Render3D(Game * game)
 {
     DrawGrid(30, 1.0f);
-    /* Draw each actor as a wireframe cube — no MeshComponent involved */
+    /* Draw each actor as a wireframe cube ï¿½ no MeshComponent involved */
     for (int i = 0; i < game->actorCount; i++) 
     {
         Actor* a = game->actors[i];

@@ -1,5 +1,6 @@
 #pragma once
 #include "raylib.h"
+#include "memory.h"
 #include <stdbool.h>
 
 typedef struct Actor Actor;
@@ -33,6 +34,9 @@ struct Game
 	/* Timing */
     float accumulator;
     int updateCount;
+
+    /* Memory */
+    MemorySystem memory;
 
 	/* Actors */
     Actor *actors[GAME_MAX_ACTORS];
