@@ -6,6 +6,7 @@ extern Level LEVEL_1;
 extern Level LEVEL_2;
 extern Level LEVEL_3;
 extern Level LEVEL_4;
+extern Level LEVEL_5;
 
 /* Main game loop */
 int main(void) 

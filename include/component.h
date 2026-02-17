@@ -10,6 +10,7 @@ typedef enum
     COMPONENT_NONE = 0,
     COMPONENT_MESH,
     COMPONENT_MOVE,
+    COMPONENT_CAMERA,
     NUM_COMPONENT_TYPES
 } ComponentType;
 

@@ -60,7 +60,7 @@ static void PlayerInput(Actor* self)
 	mc->strafeSpeed = strafe;
 }
 
-extern Level LEVEL_1;
+extern Level LEVEL_5;
 
 static Actor* SPlayer = NULL;
 
@@ -156,7 +156,7 @@ static void LEVEL_4_Input(Game* game)
 
     if (IsKeyPressed(KEY_TAB)) 
     {
-        GAME_ChangeLevel(game, &LEVEL_1);
+        GAME_ChangeLevel(game, &LEVEL_5);
     }
 }
 
