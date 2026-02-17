@@ -11,8 +11,6 @@
 
 static void GAME_ProcessInput(Game* game);
 static void GAME_FixedUpdate(Game* game, float deltaTime);
-static void GAME_Render(Game* game);
-static void GAME_DrawMeshComponents(Game* game); // TODO: Move to renderer subsystem if we add one
 
 bool GAME_Init(Game* game, Level* initialLevel) 
 {
@@ -40,9 +38,9 @@ bool GAME_Init(Game* game, Level* initialLevel)
     SetWindowState(FLAG_VSYNC_HINT);
 	SetTargetFPS(RENDER_FPS);
 
+    /* Subsystems */
+    RENDERER_Init(&game->renderer);
     DEBUG_Init();
-
-    /* Level manager — initializes the first level */
     LEVEL_MGR_Init(&game->levelMgr, game, initialLevel);
 
     TraceLog(LOG_INFO, "Game initialized - Updates: %dHz, Rendering: %dFPS",
@@ -59,10 +57,8 @@ void GAME_Shutdown(Game* game)
         return;
     }
 
-    GAME_RemoveAllActors(game);
-
-    /* Level manager handles actor cleanup + level shutdown */
     LEVEL_MGR_Shutdown(&game->levelMgr, game);
+    RENDERER_Shutdown(&game->renderer);
 
     CloseWindow();
 
@@ -90,9 +86,22 @@ void GAME_Run(Game* game)
 
         /* Advance transition timer (even when paused) */
         LEVEL_MGR_Update(&game->levelMgr, game, frameTime);
-
 		DEBUG_Update(game);
         GAME_ProcessInput(game);
+
+        /* Update clear color based on game state */
+        switch (game->state)
+        {
+        case GAME_STATE_GAMEPLAY:
+            RENDERER_SetClearColor(&game->renderer, (Color) { 20, 20, 40, 255 });
+            break;
+        case GAME_STATE_PAUSED:
+            RENDERER_SetClearColor(&game->renderer, (Color) { 40, 20, 20, 255 });
+            break;
+        default:
+            RENDERER_SetClearColor(&game->renderer, BLACK);
+            break;
+        }
 
         game->accumulator += frameTime;
 		game->updateCount = 0;
@@ -105,7 +114,7 @@ void GAME_Run(Game* game)
         }
 
         /* Render frame */
-        GAME_Render(game);
+        RENDERER_DrawFrame(&game->renderer, game);
     }
 }
 
@@ -189,90 +198,6 @@ void GAME_FixedUpdate(Game* game, float deltaTime)
             ACTOR_Destroy(game->actors[i]);
         }
     }
-}
-
-static void GAME_DrawMeshComponents(Game* game) 
-{
-    for (int i = 0; i < game->actorCount; i++) 
-    {
-        Actor* actor = game->actors[i];
-        if (actor->state != ACTOR_STATE_ACTIVE) continue;
-
-        Component* comp = ACTOR_GetComponentOfType(actor, COMPONENT_MESH);
-        if (comp) 
-        {
-            MESH_COMPONENT_Draw(comp);
-        }
-    }
-}
-
-void GAME_Render(Game* game)
-{
-	assert(game != NULL);
-
-    Color bg;
-    switch (game->state) {
-    case GAME_STATE_GAMEPLAY: bg = (Color){ 20, 20, 40, 255 };  break;
-    case GAME_STATE_PAUSED:  bg = (Color){ 40, 20, 20, 255 };  break;
-    default:                 bg = BLACK;                         break;
-    }
-
-    Level* active = LEVEL_MGR_GetActiveLevel(&game->levelMgr);
-
-    BeginDrawing();
-        ClearBackground(bg);
-
-        /* ── 3D level ── */
-        {
-            Camera3D camera = {
-                .position = (Vector3){ 15.0f, 12.0f, 15.0f },
-                .target = (Vector3){ 0.0f, 0.0f, 0.0f },
-                .up = (Vector3){ 0.0f, 1.0f, 0.0f },
-                .fovy = 45.0f,
-                .projection = CAMERA_PERSPECTIVE,
-            };
-
-            BeginMode3D(camera);
-                GAME_DrawMeshComponents(game);
-
-                if (active && active->Render3D)
-                {
-                    active->Render3D(game);
-                }
-            EndMode3D();
-        }
-
-        /* ── 2D: Level HUD ── */
-        {
-            int y = 10;
-
-            if (active && active->RenderHUD)
-            {
-                y = active->RenderHUD(game, y);
-            }
-
-            DrawText("  ESC - Quit   P - Pause   F1 - Debug",
-                10, y, 16, (Color) { 120, 120, 120, 200 });
-        }
-
-        /* ── 2D: Pause overlay ── */
-        if (game->state == GAME_STATE_PAUSED) 
-        {
-            const char* msg = "PAUSED";
-            int w = MeasureText(msg, 60);
-            DrawText(msg,
-                SCREEN_WIDTH / 2 - w / 2,
-                SCREEN_HEIGHT / 2 - 30,
-                60, RED);
-        }
-
-        /* ── 2D: Debug overlay (on top of everything) ── */
-        DEBUG_Render(game);
-
-        /* ── 2D: Transition overlay (on top of everything) ── */
-        LEVEL_MGR_Render(&game->levelMgr);
-
-    EndDrawing();
 }
 
 void GAME_AddActor(Game* game, Actor* actor) 

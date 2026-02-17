@@ -2,6 +2,7 @@
 #include "raylib.h"
 #include "memory.h"
 #include "level_manager.h"
+#include "renderer.h"
 #include <stdbool.h>
 
 typedef struct Actor Actor;
@@ -41,6 +42,9 @@ struct Game
 
     /* Level management */
     LevelManager levelMgr;
+
+    /* Rendering */
+    Renderer renderer;
 
 	/* Actors */
     Actor *actors[GAME_MAX_ACTORS];
