@@ -1,6 +1,7 @@
 #pragma once
 #include "raylib.h"
 #include "memory.h"
+#include "scene_manager.h"
 #include <stdbool.h>
 
 typedef struct Actor Actor;
@@ -38,6 +39,9 @@ struct Game
     /* Memory */
     MemorySystem memory;
 
+    /* Scene management */
+    SceneManager sceneMgr;
+
 	/* Actors */
     Actor *actors[GAME_MAX_ACTORS];
     int    actorCount;
@@ -46,10 +50,6 @@ struct Game
     bool updatingActors;
 
     int actorsCreated;
-
-    /* Scene */
-    Scene* activeScene;
-    Scene* nextScene;
 };
 
 bool GAME_Init(Game* game, Scene* initialScene);

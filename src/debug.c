@@ -5,6 +5,7 @@
 #include "game.h"
 #include "actor.h"
 #include "scene.h"
+#include "scene_manager.h"
 #include "memory.h"
 #include "raylib.h"
 
@@ -112,11 +113,11 @@ void DEBUG_Render(Game* game)
     int y = panelY;
 
     /* Panel background */
-    DrawRectangle(panelX - 5, panelY - 5, panelW + 10, 420,
+    DrawRectangle(panelX - 5, panelY - 5, panelW + 10, 500,
         (Color) {
         10, 10, 10, 200
     });
-    DrawRectangleLines(panelX - 5, panelY - 5, panelW + 10, 420,
+    DrawRectangleLines(panelX - 5, panelY - 5, panelW + 10, 500,
         (Color) {
         80, 80, 80, 200
     });
@@ -157,8 +158,9 @@ void DEBUG_Render(Game* game)
     GuiLine((Rectangle) { panelX, y, panelW, 1 }, "World");
     y += row;
 
-    const char* scene_name = game->activeScene ? game->activeScene->name : "(none)";
-    DrawText(TextFormat("Scene: %s", scene_name),
+    Scene* activeScene = SCENE_MGR_GetActiveScene(&game->sceneMgr);
+    const char* sceneName = activeScene ? activeScene->name : "(none)";
+    DrawText(TextFormat("Scene: %s", sceneName),
         panelX, y, 14, YELLOW);
     y += row;
 
@@ -179,6 +181,27 @@ void DEBUG_Render(Game* game)
     DrawText(TextFormat("Total created: %d", game->actorsCreated),
         panelX, y, 14, LIGHTGRAY);
     y += row + 4;
+
+    /* ── Transition ── */
+    if (SCENE_MGR_IsTransitioning(&game->sceneMgr))
+    {
+        GuiLine((Rectangle) { panelX, y, panelW, 1 }, "Transition");
+        y += row;
+
+        DrawText(TextFormat("State: %s", SCENE_MGR_GetStateName(&game->sceneMgr)),
+            panelX, y, 14, ORANGE);
+        y += row;
+
+        DrawText(TextFormat("Progress: %.0f%%", game->sceneMgr.progress * 100.0f),
+            panelX, y, 14, ORANGE);
+        y += row;
+
+        const char* pendingName = game->sceneMgr.pendingScene
+            ? game->sceneMgr.pendingScene->name : "(swapped)";
+        DrawText(TextFormat("Target: %s", pendingName),
+            panelX, y, 14, ORANGE);
+        y += row + 4;
+    }
 
     /* ── Memory ── */
     GuiLine((Rectangle){ panelX, y, panelW, 1 }, "Memory");

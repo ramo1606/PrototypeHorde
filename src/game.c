@@ -13,7 +13,6 @@ static void GAME_ProcessInput(Game* game);
 static void GAME_FixedUpdate(Game* game, float deltaTime);
 static void GAME_Render(Game* game);
 static void GAME_DrawMeshComponents(Game* game); // TODO: Move to renderer subsystem if we add one
-static void GAME_ApplyNextScene(Game* game); // TODO: Move to scene manager subsystem if we add one
 
 bool GAME_Init(Game* game, Scene* initialScene) 
 {
@@ -43,12 +42,8 @@ bool GAME_Init(Game* game, Scene* initialScene)
 
     DEBUG_Init();
 
-    /* Initialize the first scene */
-    game->activeScene = initialScene;
-    if (initialScene && initialScene->Init) 
-    {
-        initialScene->Init(game);
-    }
+    /* Scene manager — initializes the first scene */
+    SCENE_MGR_Init(&game->sceneMgr, game, initialScene);
 
     TraceLog(LOG_INFO, "Game initialized - Updates: %dHz, Rendering: %dFPS",
         UPDATE_RATE, GetFPS());
@@ -66,11 +61,8 @@ void GAME_Shutdown(Game* game)
 
     GAME_RemoveAllActors(game);
 
-    if (game->activeScene && game->activeScene->Shutdown) 
-    {
-        game->activeScene->Shutdown(game);
-    }
-    game->activeScene = NULL;
+    /* Scene manager handles actor cleanup + scene shutdown */
+    SCENE_MGR_Shutdown(&game->sceneMgr, game);
 
     CloseWindow();
 
@@ -90,16 +82,14 @@ void GAME_Run(Game* game)
 
     while (!WindowShouldClose() && game->state != GAME_STATE_QUIT)
     {
-        if (game->nextScene) 
-        {
-            GAME_ApplyNextScene(game);
-        }
-
         float frameTime = GetFrameTime();
         if (frameTime > MAX_DELTA_TIME)
         {
             frameTime = MAX_DELTA_TIME;
         }
+
+        /* Advance transition timer (even when paused) */
+        SCENE_MGR_Update(&game->sceneMgr, game, frameTime);
 
 		DEBUG_Update(game);
         GAME_ProcessInput(game);
@@ -136,10 +126,14 @@ void GAME_ProcessInput(Game* game)
         game->state = GAME_STATE_QUIT;
     }
 
+    /* Block scene and actor input during transitions */
+    if (SCENE_MGR_IsTransitioning(&game->sceneMgr)) return;
+
     /* Scene-specific input */
-    if (game->activeScene && game->activeScene->ProcessInput) 
+    Scene* active = SCENE_MGR_GetActiveScene(&game->sceneMgr);
+    if (active && active->ProcessInput)
     {
-        game->activeScene->ProcessInput(game);
+        active->ProcessInput(game);
     }
 
     /* Dispatch to actors */
@@ -156,10 +150,10 @@ void GAME_FixedUpdate(Game* game, float deltaTime)
 {
 	assert(game != NULL);
 
-    if (game->state != GAME_STATE_GAMEPLAY)
-    {
-        return;
-    }
+    if (game->state != GAME_STATE_GAMEPLAY) return;
+
+    /* Don't update gameplay during transitions */
+    if (SCENE_MGR_IsTransitioning(&game->sceneMgr)) return;
 
 	/* Phase 1: Update all active actors */
     game->updatingActors = true;
@@ -223,6 +217,8 @@ void GAME_Render(Game* game)
     default:                 bg = BLACK;                         break;
     }
 
+    Scene* active = SCENE_MGR_GetActiveScene(&game->sceneMgr);
+
     BeginDrawing();
         ClearBackground(bg);
 
@@ -239,9 +235,9 @@ void GAME_Render(Game* game)
             BeginMode3D(camera);
                 GAME_DrawMeshComponents(game);
 
-                if (game->activeScene && game->activeScene->Render3D) 
+                if (active && active->Render3D)
                 {
-                    game->activeScene->Render3D(game);
+                    active->Render3D(game);
                 }
             EndMode3D();
         }
@@ -250,9 +246,9 @@ void GAME_Render(Game* game)
         {
             int y = 10;
 
-            if (game->activeScene && game->activeScene->RenderHUD) 
+            if (active && active->RenderHUD)
             {
-                y = game->activeScene->RenderHUD(game, y);
+                y = active->RenderHUD(game, y);
             }
 
             DrawText("  ESC - Quit   P - Pause   F1 - Debug",
@@ -272,6 +268,9 @@ void GAME_Render(Game* game)
 
         /* ── 2D: Debug overlay (on top of everything) ── */
         DEBUG_Render(game);
+
+        /* ── 2D: Transition overlay (on top of everything) ── */
+        SCENE_MGR_Render(&game->sceneMgr);
 
     EndDrawing();
 }
@@ -371,38 +370,14 @@ void GAME_RemoveAllActors(Game* game)
 
 void GAME_ChangeScene(Game* game, Scene* scene)
 {
-   if (!game || !scene) 
+    if (!game || !scene)
     {
         TraceLog(LOG_ERROR, "GAME_ChangeScene: game or scene pointer is NULL");
         return;
     }
 
-   game->nextScene = scene;
-}
-
-static void GAME_ApplyNextScene(Game* game) 
-{
-	assert(game != NULL);
-
-    Scene* newScene = game->nextScene;
-    game->nextScene = NULL;
-
-    /* Shutdown current */
-    GAME_RemoveAllActors(game);
-    if (game->activeScene && game->activeScene->Shutdown) 
-    {
-        game->activeScene->Shutdown(game);
-    }
-
-    /* Reset state for the new scene */
-    game->state = GAME_STATE_GAMEPLAY;
-    game->accumulator = 0.0f;
-    game->actorsCreated = 0;
-
-    /* Init new */
-    game->activeScene = newScene;
-    if (newScene && newScene->Init) 
-    {
-        newScene->Init(game);
-    }
+    SCENE_MGR_TransitionTo(&game->sceneMgr, scene, 
+        TRANSITION_DEFAULT_EFFECT_OUT, 
+        TRANSITION_DEFAULT_EFFECT_IN,
+        TRANSITION_DEFAULT_DURATION);
 }
