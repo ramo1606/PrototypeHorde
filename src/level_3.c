@@ -1,4 +1,4 @@
-#include "scene.h"
+﻿#include "level.h"
 #include "game.h"
 #include "actor.h"
 #include "component.h"
@@ -99,9 +99,9 @@ static void UnloadResources(void)
     UnloadMaterial(SMaterial);
 }
 
-extern Scene SCENE_4;
+extern Level LEVEL_4;
 
-static void SCENE_3_Init(Game* game) 
+static void LEVEL_3_Init(Game* game) 
 {
 	assert(game != NULL);
 	SetRandomSeed(GetTime());
@@ -160,14 +160,14 @@ static void SCENE_3_Init(Game* game)
     }
 }
 
-static void SCENE_3_Shutdown(Game* game) 
+static void LEVEL_3_Shutdown(Game* game) 
 {
 	assert(game != NULL);
     (void)game;
     UnloadResources();
 }
 
-static void SCENE_3_Input(Game* game) 
+static void LEVEL_3_Input(Game* game) 
 {
 	assert(game != NULL);
     if (game->state != GAME_STATE_GAMEPLAY) return;
@@ -220,11 +220,11 @@ static void SCENE_3_Input(Game* game)
 
     if (IsKeyPressed(KEY_TAB)) 
     {
-        GAME_ChangeScene(game, &SCENE_4);
+        GAME_ChangeLevel(game, &LEVEL_4);
     }
 }
 
-static void SCENE_3_Render3D(Game* game) 
+static void LEVEL_3_Render3D(Game* game) 
 {
 	assert(game != NULL);
     DrawGrid(20, 1.0f);
@@ -241,31 +241,31 @@ static void SCENE_3_Render3D(Game* game)
     }
 }
 
-static int SCENE_3_RenderHUD(Game* game, int y) 
+static int LEVEL_3_RenderHUD(Game* game, int y) 
 {
 	assert(game != NULL);
     const int step = 22;
     (void)game;
 
-    DrawText("Scene 3 - MeshComponent", 10, y, 18, WHITE);
+    DrawText("Level 3 - MeshComponent", 10, y, 18, WHITE);
     y += step + 4;
 
     DrawText("SPACE - Spawn cube   S - Spawn sphere   V - Toggle vis", 10, y, 16, LIGHTGRAY);
     y += step;
     DrawText("BACKSPACE - Kill last", 10, y, 16, LIGHTGRAY);
     y += step;
-    DrawText("TAB - Next scene", 10, y, 16, YELLOW);
+    DrawText("TAB - Next level", 10, y, 16, YELLOW);
     y += step;
 
     return y;
 }
 
-Scene SCENE_3 = 
+Level LEVEL_3 = 
 {
     .name = "3 - MeshComponent",
-    .Init = SCENE_3_Init,
-    .Shutdown = SCENE_3_Shutdown,
-    .ProcessInput = SCENE_3_Input,
-    .Render3D = SCENE_3_Render3D,
-    .RenderHUD = SCENE_3_RenderHUD,
+    .Init = LEVEL_3_Init,
+    .Shutdown = LEVEL_3_Shutdown,
+    .ProcessInput = LEVEL_3_Input,
+    .Render3D = LEVEL_3_Render3D,
+    .RenderHUD = LEVEL_3_RenderHUD,
 };

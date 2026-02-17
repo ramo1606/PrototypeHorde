@@ -1,4 +1,4 @@
-#include "scene_manager.h"
+#include "level_manager.h"
 #include "game.h"
 #include "raylib.h"
 #include <assert.h>
@@ -25,81 +25,81 @@ void TRANSITION_WipeRight(float progress)
     DrawRectangle(screenW - w, 0, w, GetScreenHeight(), BLACK);
 }
 
-static void SCENE_MGR_ApplySwap(SceneManager* mgr, Game* game)
+static void LEVEL_MGR_ApplySwap(LevelManager* mgr, Game* game)
 {
     assert(mgr != NULL);
     assert(game != NULL);
 
-    Scene* newScene = mgr->pendingScene;
-    mgr->pendingScene = NULL;
+    Level* newLevel = mgr->pendingLevel;
+    mgr->pendingLevel = NULL;
 
     /* Shutdown current */
     GAME_RemoveAllActors(game);
-    if (mgr->activeScene && mgr->activeScene->Shutdown)
+    if (mgr->activeLevel && mgr->activeLevel->Shutdown)
     {
-        mgr->activeScene->Shutdown(game);
+        mgr->activeLevel->Shutdown(game);
     }
 
-    /* Reset game state for the new scene */
+    /* Reset game state for the new level */
     game->state = GAME_STATE_GAMEPLAY;
     game->accumulator = 0.0f;
     game->actorsCreated = 0;
 
     /* Init new */
-    mgr->activeScene = newScene;
-    if (newScene && newScene->Init)
+    mgr->activeLevel = newLevel;
+    if (newLevel && newLevel->Init)
     {
-        newScene->Init(game);
+        newLevel->Init(game);
     }
 
-    TraceLog(LOG_INFO, "SCENE_MGR: Swapped to '%s'",
-        newScene ? newScene->name : "(none)");
+    TraceLog(LOG_INFO, "LEVEL_MGR: Swapped to '%s'",
+        newLevel ? newLevel->name : "(none)");
 }
 
-void SCENE_MGR_Init(SceneManager* mgr, Game* game, Scene* initialScene)
+void LEVEL_MGR_Init(LevelManager* mgr, Game* game, Level* initialLevel)
 {
     assert(mgr != NULL);
     assert(game != NULL);
 
-    mgr->activeScene = NULL;
-    mgr->pendingScene = NULL;
+    mgr->activeLevel = NULL;
+    mgr->pendingLevel = NULL;
     mgr->state = TRANSITION_IDLE;
     mgr->effectOut = TRANSITION_DEFAULT_EFFECT_OUT;
     mgr->effectIn = TRANSITION_DEFAULT_EFFECT_IN;
     mgr->duration = TRANSITION_DEFAULT_DURATION;
     mgr->progress = 0.0f;
 
-    /* Init the first scene directly — no transition */
-    mgr->activeScene = initialScene;
-    if (initialScene && initialScene->Init)
+    /* Init the first level directly — no transition */
+    mgr->activeLevel = initialLevel;
+    if (initialLevel && initialLevel->Init)
     {
-        initialScene->Init(game);
+        initialLevel->Init(game);
     }
 
-    TraceLog(LOG_INFO, "SCENE_MGR: Initialized with '%s'",
-        initialScene ? initialScene->name : "(none)");
+    TraceLog(LOG_INFO, "LEVEL_MGR: Initialized with '%s'",
+        initialLevel ? initialLevel->name : "(none)");
 }
 
-void SCENE_MGR_Shutdown(SceneManager* mgr, Game* game)
+void LEVEL_MGR_Shutdown(LevelManager* mgr, Game* game)
 {
     assert(mgr != NULL);
     assert(game != NULL);
 
     GAME_RemoveAllActors(game);
 
-    if (mgr->activeScene && mgr->activeScene->Shutdown)
+    if (mgr->activeLevel && mgr->activeLevel->Shutdown)
     {
-        mgr->activeScene->Shutdown(game);
+        mgr->activeLevel->Shutdown(game);
     }
 
-    mgr->activeScene = NULL;
-    mgr->pendingScene = NULL;
+    mgr->activeLevel = NULL;
+    mgr->pendingLevel = NULL;
     mgr->state = TRANSITION_IDLE;
 
-    TraceLog(LOG_INFO, "SCENE_MGR: Shutdown");
+    TraceLog(LOG_INFO, "LEVEL_MGR: Shutdown");
 }
 
-void SCENE_MGR_Update(SceneManager* mgr, Game* game, float deltaTime)
+void LEVEL_MGR_Update(LevelManager* mgr, Game* game, float deltaTime)
 {
     assert(mgr != NULL);
 
@@ -117,7 +117,7 @@ void SCENE_MGR_Update(SceneManager* mgr, Game* game, float deltaTime)
                 mgr->progress = 1.0f;
 
                 /* Screen fully covered — do the swap */
-                SCENE_MGR_ApplySwap(mgr, game);
+                LEVEL_MGR_ApplySwap(mgr, game);
 
                 mgr->state = TRANSITION_FADING_IN;
             }
@@ -131,7 +131,7 @@ void SCENE_MGR_Update(SceneManager* mgr, Game* game, float deltaTime)
                 mgr->progress = 0.0f;
                 mgr->state = TRANSITION_IDLE;
 
-                TraceLog(LOG_INFO, "SCENE_MGR: Transition complete");
+                TraceLog(LOG_INFO, "LEVEL_MGR: Transition complete");
             }
         } break;
 
@@ -139,7 +139,7 @@ void SCENE_MGR_Update(SceneManager* mgr, Game* game, float deltaTime)
     }
 }
 
-void SCENE_MGR_Render(const SceneManager* mgr)
+void LEVEL_MGR_Render(const LevelManager* mgr)
 {
     assert(mgr != NULL);
 
@@ -159,57 +159,57 @@ void SCENE_MGR_Render(const SceneManager* mgr)
     if (effect) effect(mgr->progress);
 }
 
-void SCENE_MGR_TransitionTo(SceneManager* mgr, Scene* scene,
+void LEVEL_MGR_TransitionTo(LevelManager* mgr, Level* level,
     TransitionEffectFn effectOut,
     TransitionEffectFn effectIn,
     float duration)
 {
     assert(mgr != NULL);
 
-    if (!scene)
+    if (!level)
     {
-        TraceLog(LOG_WARNING, "SCENE_MGR: TransitionTo called with NULL scene");
+        TraceLog(LOG_WARNING, "LEVEL_MGR: TransitionTo called with NULL level");
         return;
     }
 
     /* Ignore if already transitioning */
     if (mgr->state != TRANSITION_IDLE)
     {
-        TraceLog(LOG_WARNING, "SCENE_MGR: Transition already in progress, ignoring");
+        TraceLog(LOG_WARNING, "LEVEL_MGR: Transition already in progress, ignoring");
         return;
     }
 
-    /* Ignore if same scene */
-    if (scene == mgr->activeScene)
+    /* Ignore if same level */
+    if (level == mgr->activeLevel)
     {
-        TraceLog(LOG_WARNING, "SCENE_MGR: Already on '%s', ignoring", scene->name);
+        TraceLog(LOG_WARNING, "LEVEL_MGR: Already on '%s', ignoring", level->name);
         return;
     }
 
-    mgr->pendingScene = scene;
+    mgr->pendingLevel = level;
     mgr->effectOut = effectOut ? effectOut : TRANSITION_DEFAULT_EFFECT_OUT;
     mgr->effectIn = effectIn;  /* NULL is valid — means "reverse effectOut" */
     mgr->duration = (duration > 0.0f) ? duration : TRANSITION_DEFAULT_DURATION;
     mgr->progress = 0.0f;
     mgr->state = TRANSITION_FADING_OUT;
 
-    TraceLog(LOG_INFO, "SCENE_MGR: Transitioning to '%s' (%.2fs)",
-        scene->name, mgr->duration);
+    TraceLog(LOG_INFO, "LEVEL_MGR: Transitioning to '%s' (%.2fs)",
+        level->name, mgr->duration);
 }
 
-bool SCENE_MGR_IsTransitioning(const SceneManager* mgr)
+bool LEVEL_MGR_IsTransitioning(const LevelManager* mgr)
 {
     assert(mgr != NULL);
     return mgr->state != TRANSITION_IDLE;
 }
 
-Scene* SCENE_MGR_GetActiveScene(const SceneManager* mgr)
+Level* LEVEL_MGR_GetActiveLevel(const LevelManager* mgr)
 {
     assert(mgr != NULL);
-    return mgr->activeScene;
+    return mgr->activeLevel;
 }
 
-const char* SCENE_MGR_GetStateName(const SceneManager* mgr)
+const char* LEVEL_MGR_GetStateName(const LevelManager* mgr)
 {
     assert(mgr != NULL);
     switch (mgr->state)

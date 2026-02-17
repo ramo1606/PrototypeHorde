@@ -1,4 +1,4 @@
-#include "scene.h"
+﻿#include "level.h"
 #include "game.h"
 #include "actor.h"
 #include "component.h"
@@ -60,11 +60,11 @@ static void PlayerInput(Actor* self)
 	mc->strafeSpeed = strafe;
 }
 
-extern Scene SCENE_1;
+extern Level LEVEL_1;
 
 static Actor* SPlayer = NULL;
 
-static void SCENE_4_Init(Game* game) 
+static void LEVEL_4_Init(Game* game) 
 {
 	assert(game != NULL);
 	SetRandomSeed(GetTime());
@@ -115,7 +115,7 @@ static void SCENE_4_Init(Game* game)
     }
 }
 
-static void SCENE_4_Shutdown(Game* game) 
+static void LEVEL_4_Shutdown(Game* game) 
 {
 	assert(game != NULL);
     (void)game;
@@ -123,7 +123,7 @@ static void SCENE_4_Shutdown(Game* game)
     UnloadResources();
 }
 
-static void SCENE_4_Input(Game* game) 
+static void LEVEL_4_Input(Game* game) 
 {
 	assert(game != NULL);
     if (game->state != GAME_STATE_GAMEPLAY) return;
@@ -156,11 +156,11 @@ static void SCENE_4_Input(Game* game)
 
     if (IsKeyPressed(KEY_TAB)) 
     {
-        GAME_ChangeScene(game, &SCENE_1);
+        GAME_ChangeLevel(game, &LEVEL_1);
     }
 }
 
-static void SCENE_4_Render3D(Game* game) 
+static void LEVEL_4_Render3D(Game* game) 
 {
 	assert(game != NULL);
     DrawGrid(30, 1.0f);
@@ -190,19 +190,19 @@ static void SCENE_4_Render3D(Game* game)
     }
 }
 
-static int SCENE_4_RenderHUD(Game* game, int y)
+static int LEVEL_4_RenderHUD(Game* game, int y)
 {
 	assert(game != NULL);
     const int step = 22;
 
-    DrawText("Scene 4 - MoveComponent", 10, y, 18, WHITE);
+    DrawText("Level 4 - MoveComponent", 10, y, 18, WHITE);
     y += step + 4;
 
     DrawText("W/S - Forward/Back   A/D - Rotate   Q/E - Strafe", 10, y, 16, LIGHTGRAY);
     y += step;
     DrawText("SPACE - Spawn wanderer   BACKSPACE - Kill last", 10, y, 16, LIGHTGRAY);
     y += step;
-    DrawText("TAB - Next scene (cycles to 1)", 10, y, 16, YELLOW);
+    DrawText("TAB - Next level (cycles to 1)", 10, y, 16, YELLOW);
     y += step;
 
     if (SPlayer) {
@@ -221,12 +221,12 @@ static int SCENE_4_RenderHUD(Game* game, int y)
     return y;
 }
 
-Scene SCENE_4 = 
+Level LEVEL_4 = 
 {
     .name = "4 - MoveComponent",
-    .Init = SCENE_4_Init,
-    .Shutdown = SCENE_4_Shutdown,
-    .ProcessInput = SCENE_4_Input,
-    .Render3D = SCENE_4_Render3D,
-    .RenderHUD = SCENE_4_RenderHUD,
+    .Init = LEVEL_4_Init,
+    .Shutdown = LEVEL_4_Shutdown,
+    .ProcessInput = LEVEL_4_Input,
+    .Render3D = LEVEL_4_Render3D,
+    .RenderHUD = LEVEL_4_RenderHUD,
 };

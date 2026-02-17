@@ -2,7 +2,7 @@
 #include "component.h"
 #include "debug.h"
 #include "mesh_component.h"
-#include "scene.h"
+#include "level.h"
 #include "game.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,7 +14,7 @@ static void GAME_FixedUpdate(Game* game, float deltaTime);
 static void GAME_Render(Game* game);
 static void GAME_DrawMeshComponents(Game* game); // TODO: Move to renderer subsystem if we add one
 
-bool GAME_Init(Game* game, Scene* initialScene) 
+bool GAME_Init(Game* game, Level* initialLevel) 
 {
     if (!game)
     {
@@ -42,8 +42,8 @@ bool GAME_Init(Game* game, Scene* initialScene)
 
     DEBUG_Init();
 
-    /* Scene manager — initializes the first scene */
-    SCENE_MGR_Init(&game->sceneMgr, game, initialScene);
+    /* Level manager — initializes the first level */
+    LEVEL_MGR_Init(&game->levelMgr, game, initialLevel);
 
     TraceLog(LOG_INFO, "Game initialized - Updates: %dHz, Rendering: %dFPS",
         UPDATE_RATE, GetFPS());
@@ -61,8 +61,8 @@ void GAME_Shutdown(Game* game)
 
     GAME_RemoveAllActors(game);
 
-    /* Scene manager handles actor cleanup + scene shutdown */
-    SCENE_MGR_Shutdown(&game->sceneMgr, game);
+    /* Level manager handles actor cleanup + level shutdown */
+    LEVEL_MGR_Shutdown(&game->levelMgr, game);
 
     CloseWindow();
 
@@ -89,7 +89,7 @@ void GAME_Run(Game* game)
         }
 
         /* Advance transition timer (even when paused) */
-        SCENE_MGR_Update(&game->sceneMgr, game, frameTime);
+        LEVEL_MGR_Update(&game->levelMgr, game, frameTime);
 
 		DEBUG_Update(game);
         GAME_ProcessInput(game);
@@ -126,11 +126,11 @@ void GAME_ProcessInput(Game* game)
         game->state = GAME_STATE_QUIT;
     }
 
-    /* Block scene and actor input during transitions */
-    if (SCENE_MGR_IsTransitioning(&game->sceneMgr)) return;
+    /* Block level and actor input during transitions */
+    if (LEVEL_MGR_IsTransitioning(&game->levelMgr)) return;
 
-    /* Scene-specific input */
-    Scene* active = SCENE_MGR_GetActiveScene(&game->sceneMgr);
+    /* Level-specific input */
+    Level* active = LEVEL_MGR_GetActiveLevel(&game->levelMgr);
     if (active && active->ProcessInput)
     {
         active->ProcessInput(game);
@@ -153,7 +153,7 @@ void GAME_FixedUpdate(Game* game, float deltaTime)
     if (game->state != GAME_STATE_GAMEPLAY) return;
 
     /* Don't update gameplay during transitions */
-    if (SCENE_MGR_IsTransitioning(&game->sceneMgr)) return;
+    if (LEVEL_MGR_IsTransitioning(&game->levelMgr)) return;
 
 	/* Phase 1: Update all active actors */
     game->updatingActors = true;
@@ -217,12 +217,12 @@ void GAME_Render(Game* game)
     default:                 bg = BLACK;                         break;
     }
 
-    Scene* active = SCENE_MGR_GetActiveScene(&game->sceneMgr);
+    Level* active = LEVEL_MGR_GetActiveLevel(&game->levelMgr);
 
     BeginDrawing();
         ClearBackground(bg);
 
-        /* ── 3D scene ── */
+        /* ── 3D level ── */
         {
             Camera3D camera = {
                 .position = (Vector3){ 15.0f, 12.0f, 15.0f },
@@ -242,7 +242,7 @@ void GAME_Render(Game* game)
             EndMode3D();
         }
 
-        /* ── 2D: Scene HUD ── */
+        /* ── 2D: Level HUD ── */
         {
             int y = 10;
 
@@ -270,7 +270,7 @@ void GAME_Render(Game* game)
         DEBUG_Render(game);
 
         /* ── 2D: Transition overlay (on top of everything) ── */
-        SCENE_MGR_Render(&game->sceneMgr);
+        LEVEL_MGR_Render(&game->levelMgr);
 
     EndDrawing();
 }
@@ -368,15 +368,15 @@ void GAME_RemoveAllActors(Game* game)
     }
 }
 
-void GAME_ChangeScene(Game* game, Scene* scene)
+void GAME_ChangeLevel(Game* game, Level* level)
 {
-    if (!game || !scene)
+    if (!game || !level)
     {
-        TraceLog(LOG_ERROR, "GAME_ChangeScene: game or scene pointer is NULL");
+        TraceLog(LOG_ERROR, "GAME_ChangeLevel: game or level pointer is NULL");
         return;
     }
 
-    SCENE_MGR_TransitionTo(&game->sceneMgr, scene, 
+    LEVEL_MGR_TransitionTo(&game->levelMgr, level, 
         TRANSITION_DEFAULT_EFFECT_OUT, 
         TRANSITION_DEFAULT_EFFECT_IN,
         TRANSITION_DEFAULT_DURATION);

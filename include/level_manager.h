@@ -1,6 +1,6 @@
 #pragma once
 
-#include "scene.h"
+#include "level.h"
 #include <stdbool.h>
 
 typedef struct Game Game;
@@ -24,9 +24,9 @@ void TRANSITION_WipeRight(float progress);
 
 typedef struct
 {
-    /* Scene tracking */
-    Scene* activeScene;
-    Scene* pendingScene;
+    /* Level tracking */
+    Level* activeLevel;
+    Level* pendingLevel;
 
     /* Transition */
     TransitionState    state;
@@ -34,19 +34,19 @@ typedef struct
     TransitionEffectFn effectIn;
     float              duration;
     float              progress;
-} SceneManager;
+} LevelManager;
 
-void SCENE_MGR_Init(SceneManager* mgr, Game* game, Scene* initialScene);
-void SCENE_MGR_Shutdown(SceneManager* mgr, Game* game);
+void LEVEL_MGR_Init(LevelManager* mgr, Game* game, Level* initialLevel);
+void LEVEL_MGR_Shutdown(LevelManager* mgr, Game* game);
 
-void SCENE_MGR_Update(SceneManager* mgr, Game* game, float deltaTime);
-void SCENE_MGR_Render(const SceneManager* mgr);
+void LEVEL_MGR_Update(LevelManager* mgr, Game* game, float deltaTime);
+void LEVEL_MGR_Render(const LevelManager* mgr);
 
-void SCENE_MGR_TransitionTo(SceneManager* mgr, Scene* scene,
+void LEVEL_MGR_TransitionTo(LevelManager* mgr, Level* level,
     TransitionEffectFn effectOut,
     TransitionEffectFn effectIn,
     float duration);
 
-bool SCENE_MGR_IsTransitioning(const SceneManager* mgr);
-Scene* SCENE_MGR_GetActiveScene(const SceneManager* mgr);
-const char* SCENE_MGR_GetStateName(const SceneManager* mgr);
+bool LEVEL_MGR_IsTransitioning(const LevelManager* mgr);
+Level* LEVEL_MGR_GetActiveLevel(const LevelManager* mgr);
+const char* LEVEL_MGR_GetStateName(const LevelManager* mgr);

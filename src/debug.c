@@ -4,8 +4,8 @@
 #include "debug.h"
 #include "game.h"
 #include "actor.h"
-#include "scene.h"
-#include "scene_manager.h"
+#include "level.h"
+#include "level_manager.h"
 #include "memory.h"
 #include "raylib.h"
 
@@ -154,13 +154,13 @@ void DEBUG_Render(Game* game)
         panelX, y, 14, LIGHTGRAY);
     y += row + 4;
 
-    /* ── Scene & Actors ── */
+    /* ── Level & Actors ── */
     GuiLine((Rectangle) { panelX, y, panelW, 1 }, "World");
     y += row;
 
-    Scene* activeScene = SCENE_MGR_GetActiveScene(&game->sceneMgr);
-    const char* sceneName = activeScene ? activeScene->name : "(none)";
-    DrawText(TextFormat("Scene: %s", sceneName),
+    Level* activeLevel = LEVEL_MGR_GetActiveLevel(&game->levelMgr);
+    const char* levelName = activeLevel ? activeLevel->name : "(none)";
+    DrawText(TextFormat("Level: %s", levelName),
         panelX, y, 14, YELLOW);
     y += row;
 
@@ -183,21 +183,21 @@ void DEBUG_Render(Game* game)
     y += row + 4;
 
     /* ── Transition ── */
-    if (SCENE_MGR_IsTransitioning(&game->sceneMgr))
+    if (LEVEL_MGR_IsTransitioning(&game->levelMgr))
     {
         GuiLine((Rectangle) { panelX, y, panelW, 1 }, "Transition");
         y += row;
 
-        DrawText(TextFormat("State: %s", SCENE_MGR_GetStateName(&game->sceneMgr)),
+        DrawText(TextFormat("State: %s", LEVEL_MGR_GetStateName(&game->levelMgr)),
             panelX, y, 14, ORANGE);
         y += row;
 
-        DrawText(TextFormat("Progress: %.0f%%", game->sceneMgr.progress * 100.0f),
+        DrawText(TextFormat("Progress: %.0f%%", game->levelMgr.progress * 100.0f),
             panelX, y, 14, ORANGE);
         y += row;
 
-        const char* pendingName = game->sceneMgr.pendingScene
-            ? game->sceneMgr.pendingScene->name : "(swapped)";
+        const char* pendingName = game->levelMgr.pendingLevel
+            ? game->levelMgr.pendingLevel->name : "(swapped)";
         DrawText(TextFormat("Target: %s", pendingName),
             panelX, y, 14, ORANGE);
         y += row + 4;

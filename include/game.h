@@ -1,11 +1,11 @@
 #pragma once
 #include "raylib.h"
 #include "memory.h"
-#include "scene_manager.h"
+#include "level_manager.h"
 #include <stdbool.h>
 
 typedef struct Actor Actor;
-typedef struct Scene Scene;
+typedef struct Level Level;
 typedef struct Game Game;
 
 #define SCREEN_WIDTH   1024
@@ -39,8 +39,8 @@ struct Game
     /* Memory */
     MemorySystem memory;
 
-    /* Scene management */
-    SceneManager sceneMgr;
+    /* Level management */
+    LevelManager levelMgr;
 
 	/* Actors */
     Actor *actors[GAME_MAX_ACTORS];
@@ -52,7 +52,7 @@ struct Game
     int actorsCreated;
 };
 
-bool GAME_Init(Game* game, Scene* initialScene);
+bool GAME_Init(Game* game, Level* initialLevel);
 void GAME_Shutdown(Game* game);
 void GAME_Run(Game* game);
 
@@ -62,4 +62,4 @@ void GAME_RemoveActiveActorByIndex(Game* game, int idx);
 void GAME_RemovePendingActorByIndex(Game* game, int idx);
 void GAME_RemoveAllActors(Game* game);
 
-void GAME_ChangeScene(Game* game, Scene* scene);
+void GAME_ChangeLevel(Game* game, Level* level);

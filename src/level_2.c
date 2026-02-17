@@ -1,4 +1,4 @@
-#include "scene.h"
+#include "level.h"
 #include "game.h"
 #include "actor.h"
 #include "raylib.h"
@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <math.h>
 
-extern Scene SCENE_3;
+extern Level LEVEL_3;
 
 /* Colors assigned to actors for visual distinction */
 static const Color s_colors[] = 
@@ -24,7 +24,7 @@ static const Color s_colors[] =
 
 static int spawnCount = 0;
 
-static void SCENE_2_Init(Game* game) 
+static void LEVEL_2_Init(Game* game) 
 {
 	assert(game != NULL);
 	SetRandomSeed(GetTime());
@@ -40,13 +40,13 @@ static void SCENE_2_Init(Game* game)
     }
 }
 
-static void SCENE_2_Shutdown(Game* game) 
+static void LEVEL_2_Shutdown(Game* game) 
 {
     (void)game;
     spawnCount = 0;
 }
 
-static void SCENE_2_Input(Game* game) 
+static void LEVEL_2_Input(Game* game) 
 {
 	assert(game != NULL);
     if (game->state != GAME_STATE_GAMEPLAY) return;
@@ -70,11 +70,11 @@ static void SCENE_2_Input(Game* game)
 
     if (IsKeyPressed(KEY_TAB)) 
     {
-        GAME_ChangeScene(game, &SCENE_3);
+        GAME_ChangeLevel(game, &LEVEL_3);
     }
 }
 
-static void SCENE_2_Render3D(Game * game)
+static void LEVEL_2_Render3D(Game * game)
 {
     DrawGrid(30, 1.0f);
     /* Draw each actor as a wireframe cube � no MeshComponent involved */
@@ -89,11 +89,11 @@ static void SCENE_2_Render3D(Game * game)
     }
 }
 
-static int SCENE_2_RenderHud(Game* game, int y) 
+static int LEVEL_2_RenderHud(Game* game, int y) 
 {
     const int step = 22;
 
-    DrawText("Scene 2 - Actor Lifecycle", 10, y, 18, WHITE);
+    DrawText("Level 2 - Actor Lifecycle", 10, y, 18, WHITE);
     y += step + 4;
 
     const char* info = TextFormat("Actors: %d  (total spawned: %d)",
@@ -103,17 +103,17 @@ static int SCENE_2_RenderHud(Game* game, int y)
 
     DrawText("SPACE - Spawn actor   BACKSPACE - Kill last", 10, y, 16, LIGHTGRAY);
     y += step;
-    DrawText("TAB - Next scene", 10, y, 16, YELLOW);
+    DrawText("TAB - Next level", 10, y, 16, YELLOW);
     y += step;
 
     return y;
 }
 
-Scene SCENE_2 = {
+Level LEVEL_2 = {
     .name = "2 - Actor Lifecycle",
-    .Init = SCENE_2_Init,
-    .Shutdown = SCENE_2_Shutdown,
-    .ProcessInput = SCENE_2_Input,
-    .Render3D = SCENE_2_Render3D,
-    .RenderHUD = SCENE_2_RenderHud
+    .Init = LEVEL_2_Init,
+    .Shutdown = LEVEL_2_Shutdown,
+    .ProcessInput = LEVEL_2_Input,
+    .Render3D = LEVEL_2_Render3D,
+    .RenderHUD = LEVEL_2_RenderHud
 };
