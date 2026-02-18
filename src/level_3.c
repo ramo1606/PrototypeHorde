@@ -22,7 +22,8 @@ static void SpinUpdate(Component* self, float deltaTime)
         0, 1, 0
     }, s->angularSpeed * deltaTime);
     ACTOR_SetRotation(self->owner,
-        QuaternionMultiply(self->owner->rotation, inc));
+        Vector3Add(self->owner->root.rotation, (Vector3){ 0, s->angularSpeed * deltaTime, 0 }));
+        //QuaternionMultiply(inc, self->owner->root.rotation)); --- IGNORE ---
 }
 
 static SpinComponent* SPIN_COMPONENT_Create(Actor* owner, float speed) 
@@ -50,7 +51,7 @@ static void BobUpdate(Component* self, float deltaTime)
 	assert(self != NULL);
     BobComponent* b = (BobComponent*)self;
     b->bobTime += deltaTime;
-    Vector3 pos = self->owner->position;
+    Vector3 pos = ACTOR_GetWorldPosition(self->owner);
     pos.y = b->baseY + sinf(b->bobTime * b->frequency) * b->amplitude;
     ACTOR_SetPosition(self->owner, pos);
 }
@@ -235,8 +236,8 @@ static void LEVEL_3_Render3D(Game* game)
         if (!ACTOR_GetComponentOfType(a, COMPONENT_MESH)) continue;
 
         Vector3 fwd = ACTOR_GetForward(a);
-        DrawLine3D(a->position,
-            Vector3Add(a->position, Vector3Scale(fwd, 1.5f)),
+        DrawLine3D(ACTOR_GetWorldPosition(a),
+            Vector3Add(ACTOR_GetWorldPosition(a), Vector3Scale(fwd, 1.5f)),
             YELLOW);
     }
 }

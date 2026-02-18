@@ -8,15 +8,16 @@ typedef struct Component Component;
 typedef enum 
 {
     COMPONENT_NONE = 0,
+    COMPONENT_SCENE,
     COMPONENT_MESH,
     COMPONENT_MOVE,
     COMPONENT_CAMERA,
+    COMPONENT_CAMERA_TPS,
     NUM_COMPONENT_TYPES
 } ComponentType;
 
 typedef void (*ComponentUpdateFn)(Component* self, float deltaTime);
 typedef void (*ComponentInputFn)(Component* self);
-typedef void (*ComponentTransformFn)(Component* self);
 typedef void (*ComponentDestroyFn)(Component* self);
 
 struct Component 
@@ -27,7 +28,6 @@ struct Component
 
     ComponentUpdateFn    Update;
     ComponentInputFn     Input;
-    ComponentTransformFn WorldTransform;
     ComponentDestroyFn   Destroy;
 };
 

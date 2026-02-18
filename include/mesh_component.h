@@ -1,11 +1,11 @@
 #pragma once
 
-#include "component.h"
+#include "scene_component.h"
 #include "raylib.h"
 
 typedef struct 
 {
-    Component base;
+    SceneComponent scene;
     Mesh* mesh;
     Material* material;
 	Color tint;

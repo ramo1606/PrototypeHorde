@@ -45,6 +45,17 @@ static void LEVEL_MGR_ApplySwap(LevelManager* mgr, Game* game)
     game->accumulator = 0.0f;
     game->actorsCreated = 0;
 
+    /* Reset camera to default â€” levels with CameraTPS override in Init */
+    //TODO: Resetting the camera like this is a bit hacky, but it works for now. Maybe add a RENDERER_ResetCamera or similar?
+    RENDERER_SetCamera(&game->renderer, (Camera3D){
+        .position   = (Vector3){ 15.0f, 12.0f, 15.0f },
+        .target     = (Vector3){ 0.0f, 0.0f, 0.0f },
+        .up         = (Vector3){ 0.0f, 1.0f, 0.0f },
+        .fovy       = 45.0f,
+        .projection = CAMERA_PERSPECTIVE,
+    });
+    RENDERER_SetClearColor(&game->renderer, (Color){ 20, 20, 40, 255 });
+
     /* Init new */
     mgr->activeLevel = newLevel;
     if (newLevel && newLevel->Init)
@@ -69,7 +80,7 @@ void LEVEL_MGR_Init(LevelManager* mgr, Game* game, Level* initialLevel)
     mgr->duration = TRANSITION_DEFAULT_DURATION;
     mgr->progress = 0.0f;
 
-    /* Init the first level directly — no transition */
+    /* Init the first level directly ï¿½ no transition */
     mgr->activeLevel = initialLevel;
     if (initialLevel && initialLevel->Init)
     {
@@ -116,7 +127,7 @@ void LEVEL_MGR_Update(LevelManager* mgr, Game* game, float deltaTime)
             {
                 mgr->progress = 1.0f;
 
-                /* Screen fully covered — do the swap */
+                /* Screen fully covered ï¿½ do the swap */
                 LEVEL_MGR_ApplySwap(mgr, game);
 
                 mgr->state = TRANSITION_FADING_IN;
@@ -188,7 +199,7 @@ void LEVEL_MGR_TransitionTo(LevelManager* mgr, Level* level,
 
     mgr->pendingLevel = level;
     mgr->effectOut = effectOut ? effectOut : TRANSITION_DEFAULT_EFFECT_OUT;
-    mgr->effectIn = effectIn;  /* NULL is valid — means "reverse effectOut" */
+    mgr->effectIn = effectIn;  /* NULL is valid ï¿½ means "reverse effectOut" */
     mgr->duration = (duration > 0.0f) ? duration : TRANSITION_DEFAULT_DURATION;
     mgr->progress = 0.0f;
     mgr->state = TRANSITION_FADING_OUT;

@@ -9,7 +9,8 @@ static const char* ComponentTypeNames[NUM_COMPONENT_TYPES] =
 {
     "Component",
     "MeshComponent",
-    "MoveComponent"
+    "MoveComponent",
+    "CameraComponent"
 };
 
 void COMPONENT_Init(Component* comp, Actor* owner, ComponentType type, int updateOrder) 
@@ -23,7 +24,6 @@ void COMPONENT_Init(Component* comp, Actor* owner, ComponentType type, int updat
 
     comp->Update          = NULL;
     comp->Input           = NULL;
-    comp->WorldTransform = NULL;
     comp->Destroy         = NULL;
 
 	ACTOR_AddComponent(owner, comp);

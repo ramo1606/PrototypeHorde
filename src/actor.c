@@ -30,14 +30,11 @@ void ACTOR_Init(Actor* actor, Game* game)
 	assert(actor != NULL);
 	assert(game != NULL);
 
+    SCENE_COMPONENT_InitRoot(&actor->root, actor);
+
     actor->state = ACTOR_STATE_ACTIVE;
-
-    actor->position = (Vector3){ 0.0f, 0.0f, 0.0f };
-    actor->rotation = QuaternionIdentity();
-    actor->scale = 1.0f;
-
-    actor->worldTransform = MatrixIdentity();
-    actor->isDirty = true;
+    actor->type  = ACTOR_NONE;
+    actor->game  = game;
 
     actor->Update = NULL;
     actor->Input = NULL;
@@ -47,8 +44,6 @@ void ACTOR_Init(Actor* actor, Game* game)
     memset(actor->components, 0, sizeof(actor->components));
 
 	GAME_AddActor(game, actor);
-
-    actor->game  = game;
 }
 
 void ACTOR_Destroy(Actor* actor) 
@@ -77,10 +72,8 @@ void ACTOR_Update(Actor* actor, float deltaTime)
 
     if (actor->state != ACTOR_STATE_ACTIVE) return;
 
-    if (actor->isDirty) 
-    {
-        ACTOR_ComputeWorldTransform(actor);
-    }
+    /* Resolve root transform before components read it */
+    ACTOR_ComputeWorldTransform(actor);
 
 	ACTOR_UpdateComponents(actor, deltaTime);
     
@@ -126,58 +119,47 @@ void ACTOR_ProcessInput(Actor* actor)
 void ACTOR_ComputeWorldTransform(Actor* actor) 
 {
 	assert(actor != NULL);
-
-    actor->isDirty = false;
-
-    /* SRT: Scale → Rotate → Translate */
-    Matrix s = MatrixScale(actor->scale, actor->scale, actor->scale);
-    Matrix r = QuaternionToMatrix(actor->rotation);
-    Matrix t = MatrixTranslate(actor->position.x, actor->position.y, actor->position.z);
-
-    actor->worldTransform = MatrixMultiply(MatrixMultiply(s, r), t);
-
-    for (int i = 0; i < actor->componentCount; i++) 
-    {
-        if (actor->components[i]->WorldTransform) 
-        {
-            actor->components[i]->WorldTransform(actor->components[i]);
-        }
-    }
+    SCENE_COMPONENT_ComputeWorldTransform(&actor->root);
 }
 
 //TODO: revisar que el sistema de coordenadas sea correcto, podría ser que el forward sea Z+ y no X+
-Vector3 ACTOR_GetForward(const Actor* actor) 
+Vector3 ACTOR_GetForward(Actor* actor) 
 {
 	assert(actor != NULL);
-    return Vector3RotateByQuaternion((Vector3){ 1.0f, 0.0f, 0.0f }, actor->rotation);
+    return SCENE_COMPONENT_GetForward(&actor->root);
 }
 
-Vector3 ACTOR_GetRight(const Actor* actor) 
+Vector3 ACTOR_GetRight(Actor* actor) 
 {
 	assert(actor != NULL);
-    return Vector3RotateByQuaternion((Vector3){ 0.0f, 0.0f, 1.0f }, actor->rotation);
+    return SCENE_COMPONENT_GetRight(&actor->root);
 }
 
-Vector3 ACTOR_GetUp(const Actor* actor)
+Vector3 ACTOR_GetUp(Actor* actor)
 {
 	assert(actor != NULL);
-    return Vector3RotateByQuaternion((Vector3){ 0.0f, 1.0f, 0.0f }, actor->rotation);
+    return SCENE_COMPONENT_GetUp(&actor->root);
+}
+
+Vector3 ACTOR_GetWorldPosition(Actor* actor)
+{
+    assert(actor != NULL);
+    return SCENE_COMPONENT_GetWorldPosition(&actor->root);
 }
 
 void ACTOR_SetPosition(Actor* actor, Vector3 pos) 
 {
 	assert(actor != NULL);
 
-    actor->position = pos;
-    actor->isDirty = true;
+    actor->root.position = pos;
+    SCENE_COMPONENT_MarkDirty(&actor->root);
 }
 
-void ACTOR_SetRotation(Actor* actor, Quaternion rot) 
+void ACTOR_SetRotation(Actor* actor, Vector3 euler) 
 {
-	assert(actor != NULL);
-
-    actor->rotation = rot;
-    actor->isDirty = true;
+    assert(actor != NULL);
+    actor->root.rotation = euler;
+    SCENE_COMPONENT_MarkDirty(&actor->root);
 }
 
 void ACTOR_SetScale(Actor* actor, float scale) 
@@ -185,8 +167,16 @@ void ACTOR_SetScale(Actor* actor, float scale)
 	assert(scale > 0.0f);
 	assert(actor != NULL);
 
-    actor->scale = scale;
-    actor->isDirty = true;
+    actor->root.scale = (Vector3){ scale, scale, scale };
+    SCENE_COMPONENT_MarkDirty(&actor->root);
+}
+
+void ACTOR_SetUniformScale(Actor* actor, float scale)
+{
+    assert(actor != NULL);
+    assert(scale > 0.0f);
+    actor->root.scale = (Vector3){ scale, scale, scale };
+    SCENE_COMPONENT_MarkDirty(&actor->root);
 }
 
 void ACTOR_RotateToNewForward(Actor* actor, Vector3 forward) 
@@ -198,13 +188,12 @@ void ACTOR_RotateToNewForward(Actor* actor, Vector3 forward)
     if (dot > 0.9999f) 
     {
         /* Already facing forward, identity */
-        ACTOR_SetRotation(actor, QuaternionIdentity());
+        ACTOR_SetRotation(actor, (Vector3){ 0, 0, 0 });
     }
     else if (dot < -0.9999f) 
     {
         /* Facing opposite: rotate 180° around Y (up axis) */
-        ACTOR_SetRotation(actor,
-            QuaternionFromAxisAngle((Vector3){ 0.0f, 1.0f, 0.0f }, PI));
+        ACTOR_SetRotation(actor, (Vector3){ 0, PI, 0 }  );
     }
     else 
     {
@@ -212,7 +201,7 @@ void ACTOR_RotateToNewForward(Actor* actor, Vector3 forward)
             (Vector3){ 1.0f, 0.0f, 0.0f }, forward);
         axis = Vector3Normalize(axis);
         float angle = acosf(dot);
-        ACTOR_SetRotation(actor, QuaternionFromAxisAngle(axis, angle));
+        ACTOR_SetRotation(actor, (Vector3){ axis.x * angle, axis.y * angle, axis.z * angle });
     }
 }
 

@@ -23,8 +23,8 @@ static void MoveUpdate(Component* self, float deltaTime)
     if (fabsf(mc->angularSpeed) > NEAR_ZERO) 
     {
         float angle = mc->angularSpeed * deltaTime;
-        Quaternion inc = QuaternionFromAxisAngle((Vector3) { 0, 1, 0 }, angle);
-        Quaternion rot = QuaternionMultiply(owner->rotation, inc);
+        Vector3 rot = owner->root.rotation;
+        rot.y += angle;
         ACTOR_SetRotation(owner, rot);
     }
 
@@ -32,7 +32,7 @@ static void MoveUpdate(Component* self, float deltaTime)
     if (fabsf(mc->forwardSpeed) > NEAR_ZERO ||
         fabsf(mc->strafeSpeed) > NEAR_ZERO) 
     {
-        Vector3 pos = owner->position;
+        Vector3 pos = owner->root.position;
         Vector3 fwd = ACTOR_GetForward(owner);
         Vector3 right = ACTOR_GetRight(owner);
 

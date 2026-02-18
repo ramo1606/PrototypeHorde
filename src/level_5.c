@@ -4,7 +4,7 @@
 #include "component.h"
 #include "mesh_component.h"
 #include "move_component.h"
-#include "follow_camera.h"
+#include "camera_tps.h"
 #include <assert.h>
 #include <math.h>
 
@@ -109,7 +109,8 @@ static void LEVEL_5_Init(Game* game)
         mc->tint = GREEN;
 
         MOVE_COMPONENT_Create(SPlayer);
-        FOLLOW_CAMERA_Create(SPlayer);
+        CameraTPS* ctps = CAMERA_TPS_Create(SPlayer);
+        CAMERA_COMPONENT_Apply(&ctps->cameraComponent);
         SPlayer->Input = PlayerInput;
     }
 
@@ -186,7 +187,7 @@ static void LEVEL_5_Render3D(Game* game)
     /* Player axes */
     if (SPlayer && SPlayer->state == ACTOR_STATE_ACTIVE)
     {
-        Vector3 p = SPlayer->position;
+        Vector3 p = ACTOR_GetWorldPosition(SPlayer);
         Vector3 fwd = ACTOR_GetForward(SPlayer);
         Vector3 rgt = ACTOR_GetRight(SPlayer);
 
@@ -203,7 +204,7 @@ static void LEVEL_5_Render3D(Game* game)
         if (!ACTOR_GetComponentOfType(a, COMPONENT_MOVE)) continue;
 
         Vector3 fwd = ACTOR_GetForward(a);
-        Vector3 pos = a->position;
+        Vector3 pos = ACTOR_GetWorldPosition(a);
         DrawLine3D(pos, Vector3Add(pos, Vector3Scale(fwd, 1.0f)), YELLOW);
     }
 }
@@ -225,9 +226,10 @@ static int LEVEL_5_RenderHUD(Game* game, int y)
 
     if (SPlayer)
     {
-        const char* pos = TextFormat("Pos: %.1f, %.1f, %.1f",
-            SPlayer->position.x, SPlayer->position.y, SPlayer->position.z);
-        DrawText(pos, 10, y, 16, GREEN);
+        Vector3 pos = ACTOR_GetWorldPosition(SPlayer);
+        const char* posText = TextFormat("Pos: %.1f, %.1f, %.1f",
+            pos.x, pos.y, pos.z);
+        DrawText(posText, 10, y, 16, GREEN);
         y += step;
 
         Vector3 fwd = ACTOR_GetForward(SPlayer);
@@ -249,7 +251,7 @@ static int LEVEL_5_RenderHUD(Game* game, int y)
 
 Level LEVEL_5 =
 {
-    .name = "5 - FollowCamera",
+    .name = "5 - CameraTPS",
     .Init = LEVEL_5_Init,
     .Shutdown = LEVEL_5_Shutdown,
     .ProcessInput = LEVEL_5_Input,

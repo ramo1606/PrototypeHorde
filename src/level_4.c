@@ -167,7 +167,7 @@ static void LEVEL_4_Render3D(Game* game)
     /* Draw axis lines for player */
     if (SPlayer && SPlayer->state == ACTOR_STATE_ACTIVE)
     {
-        Vector3 p = SPlayer->position;
+        Vector3 p = ACTOR_GetWorldPosition(SPlayer);
         Vector3 fwd = ACTOR_GetForward(SPlayer);
         Vector3 right = ACTOR_GetRight(SPlayer);
 
@@ -184,8 +184,9 @@ static void LEVEL_4_Render3D(Game* game)
         if (!ACTOR_GetComponentOfType(a, COMPONENT_MOVE)) continue;
 
         Vector3 fwd = ACTOR_GetForward(a);
-        DrawLine3D(a->position,
-            Vector3Add(a->position, Vector3Scale(fwd, 1.0f)),
+        Vector3 pos = ACTOR_GetWorldPosition(a);
+        DrawLine3D(pos,
+            Vector3Add(pos, Vector3Scale(fwd, 1.0f)),
             YELLOW);
     }
 }
@@ -206,9 +207,10 @@ static int LEVEL_4_RenderHUD(Game* game, int y)
     y += step;
 
     if (SPlayer) {
-        const char* pos = TextFormat("Pos: %.1f, %.1f, %.1f",
-            SPlayer->position.x, SPlayer->position.y, SPlayer->position.z);
-        DrawText(pos, 10, y, 16, GREEN);
+        Vector3 pos = ACTOR_GetWorldPosition(SPlayer);
+        const char* posText = TextFormat("Pos: %.1f, %.1f, %.1f",
+            pos.x, pos.y, pos.z);
+        DrawText(posText, 10, y, 16, GREEN);
         y += step;
 
         Vector3 fwd = ACTOR_GetForward(SPlayer);

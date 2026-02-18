@@ -30,15 +30,6 @@ static void LEVEL_2_Init(Game* game)
 	SetRandomSeed(GetTime());
     spawnCount = 0;
 
-    Camera3D resetCamera = (Camera3D){
-            .position = (Vector3){ 15.0f, 12.0f, 15.0f },
-            .target = (Vector3){ 0.0f, 0.0f, 0.0f },
-            .up = (Vector3){ 0.0f, 1.0f, 0.0f },
-            .fovy = 45.0f,
-            .projection = CAMERA_PERSPECTIVE,
-    };
-    RENDERER_SetCamera(&game->renderer, resetCamera);
-
     /* Pre-spawn a few actors */
     for (int i = 0; i < 4; i++) 
     {
@@ -93,8 +84,8 @@ static void LEVEL_2_Render3D(Game * game)
         if (a->state != ACTOR_STATE_ACTIVE) continue;
 
         Color c = s_colors[i % COLOR_COUNT];
-        DrawCubeV(a->position, (Vector3) { 1, 1, 1 }, c);
-        DrawCubeWiresV(a->position, (Vector3) { 1.01f, 1.01f, 1.01f }, BLACK);
+        DrawCubeV(ACTOR_GetWorldPosition(a), (Vector3) { 1, 1, 1 }, c);
+        DrawCubeWiresV(ACTOR_GetWorldPosition(a), (Vector3) { 1.01f, 1.01f, 1.01f }, BLACK);
     }
 }
 

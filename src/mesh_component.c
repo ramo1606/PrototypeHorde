@@ -10,11 +10,12 @@ MeshComponent* MESH_COMPONENT_Create(Actor* owner, Mesh* mesh, Material* materia
     assert(mesh != NULL);
     assert(material != NULL);
 
-	//TODO: replace for actual memory management system
     MeshComponent* self = (MeshComponent*)MEMORY_AllocComponent(&owner->game->memory, sizeof(MeshComponent));
     if (!self) return NULL;
 
-    COMPONENT_Init(&self->base, owner, COMPONENT_MESH, 200);
+    SCENE_COMPONENT_Init(&self->scene, owner, COMPONENT_MESH, 200);
+    SCENE_COMPONENT_AttachChild(&owner->root, &self->scene);
+
     self->mesh = mesh;
     self->material = material;
 	self->tint = WHITE;
@@ -31,12 +32,14 @@ void MESH_COMPONENT_Draw(Component* mc)
     {
         MeshComponent* meshComponent = (MeshComponent*)mc;
         if (!meshComponent->visible || !meshComponent->mesh || !meshComponent->material) return;
+
+        SCENE_COMPONENT_ComputeWorldTransform(&meshComponent->scene);
         
         /* Save original diffuse color, apply per-component tint */
         Color original = meshComponent->material->maps[MATERIAL_MAP_DIFFUSE].color;
         meshComponent->material->maps[MATERIAL_MAP_DIFFUSE].color = meshComponent->tint;
 
-        DrawMesh(*meshComponent->mesh, *meshComponent->material, meshComponent->base.owner->worldTransform);
+        DrawMesh(*meshComponent->mesh, *meshComponent->material, meshComponent->scene.worldTransform);
         /* Restore shared material color */
         meshComponent->material->maps[MATERIAL_MAP_DIFFUSE].color = original;
     }
