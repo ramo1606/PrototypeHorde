@@ -1,8 +1,15 @@
 #include "mesh_component.h"
 #include "actor.h"
 #include "game.h"
+#include "renderer.h"
 #include <assert.h>
 #include <stdlib.h>
+
+static void MeshComponentDestroy(Component* self)
+{
+    MeshComponent* mc = (MeshComponent*)self;
+    RENDERER_RemoveMesh(&mc->scene.base.owner->game->renderer, mc);
+}
 
 MeshComponent* MESH_COMPONENT_Create(Actor* owner, Mesh* mesh, Material* material)
 {
@@ -14,12 +21,17 @@ MeshComponent* MESH_COMPONENT_Create(Actor* owner, Mesh* mesh, Material* materia
     if (!self) return NULL;
 
     SCENE_COMPONENT_Init(&self->scene, owner, COMPONENT_MESH, 200);
+	self->scene.base.Destroy = MeshComponentDestroy;
     SCENE_COMPONENT_AttachChild(&owner->root, &self->scene);
 
     self->mesh = mesh;
     self->material = material;
 	self->tint = WHITE;
     self->visible = true;
+    self->localBB = GetMeshBoundingBox(*mesh);
+
+    /* Auto-register with Renderer */
+    RENDERER_AddMesh(&owner->game->renderer, self);
 
     return self;
 }

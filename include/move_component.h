@@ -1,12 +1,14 @@
 #pragma once
 #include "component.h"
 
-typedef struct 
+typedef struct MoveComponent MoveComponent;
+
+struct MoveComponent
 {
     Component base;
     float angularSpeed;
     float forwardSpeed;
     float strafeSpeed;
-} MoveComponent;
+};
 
 MoveComponent* MOVE_COMPONENT_Create(Actor* owner);

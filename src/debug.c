@@ -6,6 +6,7 @@
 #include "actor.h"
 #include "level.h"
 #include "level_manager.h"
+#include "renderer.h"
 #include "memory.h"
 #include "raylib.h"
 
@@ -179,6 +180,24 @@ void DEBUG_Render(Game* game)
     y += row;
 
     DrawText(TextFormat("Total created: %d", game->actorsCreated),
+        panelX, y, 14, LIGHTGRAY);
+    y += row + 4;
+
+    /* ── Rendering ── */
+    GuiLine((Rectangle) { panelX, y, panelW, 1 }, "Rendering");
+    y += row;
+
+    DrawText(TextFormat("Meshes: %d registered", game->renderer.meshCount),
+        panelX, y, 14, LIGHTGRAY);
+    y += row;
+
+    DrawText(TextFormat("Drawn: %d  Culled: %d",
+        game->renderer.statsDrawn, game->renderer.statsCulled),
+        panelX, y, 14, LIGHTGRAY);
+    y += row;
+
+    DrawText(TextFormat("Colliders: %d box  %d sphere",
+        game->physWorld.boxCount, game->physWorld.sphereCount),
         panelX, y, 14, LIGHTGRAY);
     y += row + 4;
 
