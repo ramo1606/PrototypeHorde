@@ -14,7 +14,7 @@ static void SphereComponentUpdate(Component* self, float deltaTime)
     SphereComponent* sc = (SphereComponent*)self;
     Actor* owner = sc->component.owner;
 
-    SPATIAL_ComputeWorldTransform(&owner->root);
+    SCENE_COMPONENT_ComputeWorldTransform(&owner->root);
 
     /* Transform offset by world matrix to get world center */
     sc->worldCenter = Vector3Transform(sc->offset, owner->root.worldTransform);

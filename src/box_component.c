@@ -15,7 +15,7 @@ static void BoxComponentUpdate(Component* self, float deltaTime)
     Actor* owner = bc->component.owner;
 
     /* Ensure actor transform is fresh (no-op if not dirty) */
-    SPATIAL_ComputeWorldTransform(&owner->root);
+    SCENE_COMPONENT_ComputeWorldTransform(&owner->root);
 
     /* Recompute world AABB from object box + world transform */
     bc->worldBox = COLLISION_TransformAABB(bc->objectBox, owner->root.worldTransform);
