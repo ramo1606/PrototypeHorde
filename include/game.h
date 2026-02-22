@@ -3,6 +3,7 @@
 #include "memory.h"
 #include "level_manager.h"
 #include "renderer.h"
+#include "physics_world.h"
 #include <stdbool.h>
 
 typedef struct Actor Actor;
@@ -45,6 +46,9 @@ struct Game
 
     /* Rendering */
     Renderer renderer;
+
+    /* Physics */
+    PhysWorld physWorld;
 
 	/* Actors */
     Actor *actors[GAME_MAX_ACTORS];

@@ -38,8 +38,9 @@ void MESH_COMPONENT_Draw(Component* mc)
         /* Save original diffuse color, apply per-component tint */
         Color original = meshComponent->material->maps[MATERIAL_MAP_DIFFUSE].color;
         meshComponent->material->maps[MATERIAL_MAP_DIFFUSE].color = meshComponent->tint;
-
+        
         DrawMesh(*meshComponent->mesh, *meshComponent->material, meshComponent->scene.worldTransform);
+        
         /* Restore shared material color */
         meshComponent->material->maps[MATERIAL_MAP_DIFFUSE].color = original;
     }
