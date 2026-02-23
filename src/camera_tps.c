@@ -5,6 +5,9 @@
 #include <assert.h>
 #include <math.h>
 
+/* Small offset to keep camera in front of the wall surface */
+#define CAMERA_WALL_OFFSET 0.25f
+
 static Vector3 ComputeIdealPos(CameraTPS* ctps)
 {
     assert(ctps != NULL);
@@ -23,6 +26,36 @@ static Vector3 ComputeTarget(CameraTPS* ctps)
     Actor* owner = CAMERA_COMPONENT_GetOwner(&ctps->cameraComponent);
     Vector3 fwd = ACTOR_GetForward(owner);
     return Vector3Add(owner->root.position, Vector3Scale(fwd, ctps->targetDist));
+}
+
+/*
+ * Raycast from the look-at target toward the ideal camera position.
+ * If geometry is hit, pull the camera in front of the hit point.
+ * This prevents the camera from ending up behind walls/floors.
+ */
+static Vector3 ClampCameraToWorld(CameraTPS* ctps, Vector3 cameraPos)
+{
+    Actor* owner = CAMERA_COMPONENT_GetOwner(&ctps->cameraComponent);
+    PhysWorld* world = &owner->game->physWorld;
+
+    /* Ray from target toward camera */
+    Vector3 target = ComputeTarget(ctps);
+    Vector3 toCamera = Vector3Subtract(cameraPos, target);
+    float dist = Vector3Length(toCamera);
+    if (dist < 0.001f) return cameraPos;
+
+    Ray ray = { target, Vector3Scale(toCamera, 1.0f / dist) };
+    CollisionInfo hit;
+
+    if (PHYS_WORLD_RayCast(world, ray, dist, &hit))
+    {
+        /* Place camera at hit point minus a small offset toward target */
+        float clampedDist = hit.collision.distance - CAMERA_WALL_OFFSET;
+        if (clampedDist < CAMERA_WALL_OFFSET) clampedDist = CAMERA_WALL_OFFSET;
+        return Vector3Add(target, Vector3Scale(ray.direction, clampedDist));
+    }
+
+    return cameraPos;
 }
 
 static void CameraTPSUpdate(Component* self, float deltaTime)
@@ -46,6 +79,9 @@ static void CameraTPSUpdate(Component* self, float deltaTime)
     /* Integrate */
     ctps->velocity = Vector3Add(ctps->velocity, Vector3Scale(accel, deltaTime));
     ctps->actualPos = Vector3Add(ctps->actualPos, Vector3Scale(ctps->velocity, deltaTime));
+
+    /* Prevent camera from clipping through world geometry */
+    ctps->actualPos = ClampCameraToWorld(ctps, ctps->actualPos);
 
     /* Write result into the base Camera3D, then push to Renderer */
     ctps->cameraComponent.cam.position = ctps->actualPos;

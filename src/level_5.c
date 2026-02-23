@@ -10,28 +10,28 @@
 
 enum
 {
-    MESH_CUBE = 0,
-    MESH_SPHERE,
-    MESH_CYLINDER,
-    MESH_FLOOR,
-    MESH_COUNT
+    L5_MESH_CUBE = 0,
+    L5_MESH_SPHERE,
+    L5_MESH_CYLINDER,
+    L5_MESH_FLOOR,
+    L5_MESH_COUNT
 };
 
-static Mesh     SMeshes[MESH_COUNT];
+static Mesh     SMeshes[L5_MESH_COUNT];
 static Material SMaterial;
 
 static void LoadResources(void)
 {
-    SMeshes[MESH_CUBE] = GenMeshCube(1, 1, 1);
-    SMeshes[MESH_SPHERE] = GenMeshSphere(0.5f, 16, 16);
-    SMeshes[MESH_CYLINDER] = GenMeshCylinder(0.3f, 3, 16);
-    SMeshes[MESH_FLOOR] = GenMeshPlane(50, 50, 1, 1);
+    SMeshes[L5_MESH_CUBE] = GenMeshCube(1, 1, 1);
+    SMeshes[L5_MESH_SPHERE] = GenMeshSphere(0.5f, 16, 16);
+    SMeshes[L5_MESH_CYLINDER] = GenMeshCylinder(0.3f, 3, 16);
+    SMeshes[L5_MESH_FLOOR] = GenMeshPlane(50, 50, 1, 1);
     SMaterial = LoadMaterialDefault();
 }
 
 static void UnloadResources(void)
 {
-    for (int i = 0; i < MESH_COUNT; i++)
+    for (int i = 0; i < L5_MESH_COUNT; i++)
     {
         UnloadMesh(SMeshes[i]);
     }
@@ -80,7 +80,7 @@ static void LEVEL_5_Init(Game* game)
         Actor* a = ACTOR_Create(game);
         if (!a) return;
         ACTOR_SetPosition(a, (Vector3) { 0, -0.001f, 0 });
-        MeshComponent* mc = MESH_COMPONENT_Create(a, &SMeshes[MESH_FLOOR], &SMaterial);
+        MeshComponent* mc = MESH_COMPONENT_Create(a, &SMeshes[L5_MESH_FLOOR], &SMaterial);
         mc->tint = (Color){ 50, 50, 50, 255 };
     }
 
@@ -95,7 +95,7 @@ static void LEVEL_5_Init(Game* game)
         ACTOR_SetPosition(a, (Vector3) {
             cosf(angle)* radius, 1.5f, sinf(angle)* radius
         });
-        MeshComponent* mc = MESH_COMPONENT_Create(a, &SMeshes[MESH_CYLINDER], &SMaterial);
+        MeshComponent* mc = MESH_COMPONENT_Create(a, &SMeshes[L5_MESH_CYLINDER], &SMaterial);
         mc->tint = pillarColors[i % 6];
     }
 
@@ -105,7 +105,7 @@ static void LEVEL_5_Init(Game* game)
         if (!SPlayer) return;
         ACTOR_SetPosition(SPlayer, (Vector3) { 0, 0.5f, 0 });
 
-        MeshComponent* mc = MESH_COMPONENT_Create(SPlayer, &SMeshes[MESH_CUBE], &SMaterial);
+        MeshComponent* mc = MESH_COMPONENT_Create(SPlayer, &SMeshes[L5_MESH_CUBE], &SMaterial);
         mc->tint = GREEN;
 
         MOVE_COMPONENT_Create(SPlayer);
@@ -125,7 +125,7 @@ static void LEVEL_5_Init(Game* game)
             cosf(angle) * 8.0f, 0.5f, sinf(angle) * 8.0f
         });
 
-        MeshComponent* mc = MESH_COMPONENT_Create(a, &SMeshes[MESH_SPHERE], &SMaterial);
+        MeshComponent* mc = MESH_COMPONENT_Create(a, &SMeshes[L5_MESH_SPHERE], &SMaterial);
         mc->tint = wanderColors[i];
 
         MoveComponent* mv = MOVE_COMPONENT_Create(a);
@@ -158,7 +158,7 @@ static void LEVEL_5_Input(Game* game)
             ACTOR_SetPosition(a, (Vector3) { x, 0.5f, z });
 
             Color colors[] = { RED, ORANGE, YELLOW, PURPLE, SKYBLUE, PINK };
-            MeshComponent* mc = MESH_COMPONENT_Create(a, &SMeshes[MESH_SPHERE], &SMaterial);
+            MeshComponent* mc = MESH_COMPONENT_Create(a, &SMeshes[L5_MESH_SPHERE], &SMaterial);
             mc->tint = colors[GetRandomValue(0, 5)];
 
             MoveComponent* mv = MOVE_COMPONENT_Create(a);

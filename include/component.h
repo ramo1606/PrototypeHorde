@@ -36,6 +36,8 @@ struct Component
 void COMPONENT_Init(Component* comp, Actor* owner, ComponentType type, int updateOrder);
 void COMPONENT_Destroy(Component* comp);
 
+const char* COMPONENT_GetTypeName(ComponentType type);
+
 //void COMPONENT_LoadProperty(json);
 //void COMPONENT_SaveProperty(json);
 //Component* COMPONENT_Create(Actor* actor, json);

@@ -11,6 +11,9 @@ static void SCENE_COMPONENT_InitFields(SceneComponent* sc)
     sc->rotation = (Vector3){ 0 };
     sc->scale    = (Vector3){ 1.0f, 1.0f, 1.0f };
 
+    sc->prevPosition = (Vector3){ 0 };
+    sc->prevRotation = (Vector3){ 0 };
+
     sc->localTransform = MatrixIdentity();
     sc->worldTransform = MatrixIdentity();
     sc->isDirty = true;
@@ -198,4 +201,42 @@ Actor* SCENE_COMPONENT_GetOwner(SceneComponent* sc)
 {
     assert(sc != NULL);
     return sc->base.owner;
+}
+
+/* ── Render Interpolation ──────────────────────────────────────── */
+
+void SCENE_COMPONENT_SavePrevState(SceneComponent* sc)
+{
+    assert(sc != NULL);
+    sc->prevPosition = sc->position;
+    sc->prevRotation = sc->rotation;
+}
+
+void SCENE_COMPONENT_InterpolateForRender(SceneComponent* sc, float alpha)
+{
+    assert(sc != NULL);
+
+    /* Lerp position: renderPos = prev + alpha * (current - prev) */
+    Vector3 actualPos = sc->position;
+    Vector3 actualRot = sc->rotation;
+
+    sc->position = Vector3Lerp(sc->prevPosition, actualPos, alpha);
+    sc->rotation = Vector3Lerp(sc->prevRotation, actualRot, alpha);
+
+    /* Store actual values in prev so RestoreFromInterpolation can recover them */
+    sc->prevPosition = actualPos;
+    sc->prevRotation = actualRot;
+
+    SCENE_COMPONENT_MarkDirty(sc);
+}
+
+void SCENE_COMPONENT_RestoreFromInterpolation(SceneComponent* sc)
+{
+    assert(sc != NULL);
+
+    /* prevPosition/prevRotation were set to the actual values by InterpolateForRender */
+    sc->position = sc->prevPosition;
+    sc->rotation = sc->prevRotation;
+
+    SCENE_COMPONENT_MarkDirty(sc);
 }

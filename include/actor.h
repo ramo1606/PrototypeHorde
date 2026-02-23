@@ -70,14 +70,9 @@ Vector3 ACTOR_GetWorldPosition(Actor* actor);
 void ACTOR_SetPosition(Actor* actor, Vector3 pos);
 void ACTOR_SetRotation(Actor* actor, Vector3 euler);
 void ACTOR_SetScale(Actor* actor, float scale);
-void ACTOR_SetUniformScale(Actor* actor, float scale);
 
 void ACTOR_RotateToNewForward(Actor* actor, Vector3 forward);
 
 void ACTOR_AddComponent(Actor* actor, Component* comp);
 void ACTOR_RemoveComponent(Actor* actor, Component* comp);
 Component *ACTOR_GetComponentOfType(Actor* actor, ComponentType type);
-
-//void COMPONENT_LoadProperty(json);
-//void COMPONENT_SaveProperty(json);
-//Component* COMPONENT_Create(Actor* actor, json);

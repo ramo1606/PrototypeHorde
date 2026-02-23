@@ -11,6 +11,7 @@ typedef struct SphereComponent
     Vector3   offset;       /* Local-space offset from actor origin */
     float     radius;       /* Sphere radius (local space) */
     Vector3   worldCenter;  /* Recomputed each frame */
+    float     worldRadius;  /* Recomputed each frame */
 } SphereComponent;
 
 SphereComponent* SPHERE_COMPONENT_Create(Actor* owner);

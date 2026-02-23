@@ -6,12 +6,6 @@
 #include <assert.h>
 #include <math.h>
 
-static const char* ActorTypeNames[NUM_ACTOR_TYPES] = 
-{
-    "Actor",
-	"TPSActor"
-};
-
 static void ACTOR_Init(Actor* actor, Game* game);
 
 Actor* ACTOR_Create(Game* game)
@@ -62,8 +56,9 @@ void ACTOR_Destroy(Actor* actor)
         actor->Destroy(actor);
     }
 
-	GAME_RemoveActor(actor->game, actor);
-    MEMORY_FreeActor(&actor->game->memory, actor);
+	Game* game = actor->game;
+	GAME_RemoveActor(game, actor);
+    MEMORY_FreeActor(&game->memory, actor);
 }
 
 void ACTOR_Update(Actor* actor, float deltaTime) 
@@ -171,38 +166,19 @@ void ACTOR_SetScale(Actor* actor, float scale)
     SCENE_COMPONENT_MarkDirty(&actor->root);
 }
 
-void ACTOR_SetUniformScale(Actor* actor, float scale)
-{
-    assert(actor != NULL);
-    assert(scale > 0.0f);
-    actor->root.scale = (Vector3){ scale, scale, scale };
-    SCENE_COMPONENT_MarkDirty(&actor->root);
-}
-
 void ACTOR_RotateToNewForward(Actor* actor, Vector3 forward) 
 {
     assert(actor != NULL);
 
-    float dot = Vector3DotProduct((Vector3){ 1.0f, 0.0f, 0.0f }, forward);
+    /* Project onto XZ plane and normalize (ignore Y component) */
+    Vector3 flatFwd = { forward.x, 0.0f, forward.z };
+    float len = Vector3Length(flatFwd);
+    if (len < 0.0001f) return;   /* Degenerate — pointing straight up/down */
 
-    if (dot > 0.9999f) 
-    {
-        /* Already facing forward, identity */
-        ACTOR_SetRotation(actor, (Vector3){ 0, 0, 0 });
-    }
-    else if (dot < -0.9999f) 
-    {
-        /* Facing opposite: rotate 180° around Y (up axis) */
-        ACTOR_SetRotation(actor, (Vector3){ 0, PI, 0 }  );
-    }
-    else 
-    {
-        Vector3 axis = Vector3CrossProduct(
-            (Vector3){ 1.0f, 0.0f, 0.0f }, forward);
-        axis = Vector3Normalize(axis);
-        float angle = acosf(dot);
-        ACTOR_SetRotation(actor, (Vector3){ axis.x * angle, axis.y * angle, axis.z * angle });
-    }
+    flatFwd = Vector3Scale(flatFwd, 1.0f / len);
+
+    float yaw = atan2f(-flatFwd.x, -flatFwd.z);
+    ACTOR_SetRotation(actor, (Vector3) { 0.0f, yaw, 0.0f });
 }
 
 void ACTOR_AddComponent(Actor* actor, Component* comp) 

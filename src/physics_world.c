@@ -122,6 +122,12 @@ bool PHYS_WORLD_RayCast(PhysWorld* world, Ray ray, float maxDistance,
         }
     }
 
+    /* Store the actual distance of the closest hit */
+    if (collided)
+    {
+        outColl->collision.distance = closestDist;
+    }
+
     return collided;
 }
 

@@ -40,6 +40,7 @@ bool GAME_Init(Game* game, Level* initialLevel)
 
     /* Subsystems */
     RENDERER_Init(&game->renderer);
+    PHYS_WORLD_Init(&game->physWorld);
     DEBUG_Init();
     LEVEL_MGR_Init(&game->levelMgr, game, initialLevel);
 
@@ -106,6 +107,12 @@ void GAME_Run(Game* game)
         game->accumulator += frameTime;
 		game->updateCount = 0;
 
+        /* Save actor transform state before physics updates */
+        for (int i = 0; i < game->actorCount; i++)
+        {
+            SCENE_COMPONENT_SavePrevState(&game->actors[i]->root);
+        }
+
         while (game->accumulator >= FIXED_TIMESTEP)
         {
             GAME_FixedUpdate(game, FIXED_TIMESTEP);
@@ -113,8 +120,22 @@ void GAME_Run(Game* game)
 			game->updateCount++;
         }
 
+        /* Interpolate actor transforms for smooth rendering between fixed updates.
+         * alpha = 0.0 → show previous state, 1.0 → show current state. */
+        float alpha = game->accumulator / FIXED_TIMESTEP;
+        for (int i = 0; i < game->actorCount; i++)
+        {
+            SCENE_COMPONENT_InterpolateForRender(&game->actors[i]->root, alpha);
+        }
+
         /* Render frame */
         RENDERER_DrawFrame(&game->renderer, game);
+
+        /* Restore actual physics transforms after rendering */
+        for (int i = 0; i < game->actorCount; i++)
+        {
+            SCENE_COMPONENT_RestoreFromInterpolation(&game->actors[i]->root);
+        }
     }
 }
 

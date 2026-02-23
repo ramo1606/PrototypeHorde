@@ -17,13 +17,8 @@ static void SpinUpdate(Component* self, float deltaTime)
 {
 	assert(self != NULL);
     SpinComponent* s = (SpinComponent*)self;
-    Quaternion inc = QuaternionFromAxisAngle(
-        (Vector3) {
-        0, 1, 0
-    }, s->angularSpeed * deltaTime);
     ACTOR_SetRotation(self->owner,
         Vector3Add(self->owner->root.rotation, (Vector3){ 0, s->angularSpeed * deltaTime, 0 }));
-        //QuaternionMultiply(inc, self->owner->root.rotation)); --- IGNORE ---
 }
 
 static SpinComponent* SPIN_COMPONENT_Create(Actor* owner, float speed) 
@@ -70,30 +65,30 @@ static BobComponent* BOB_COMPONENT_Create(Actor* owner, float base_y,
     return b;
 }
 
-enum 
-{ 
-    MESH_CUBE = 0, 
-    MESH_SPHERE, 
-    MESH_CYLINDER, 
-    MESH_FLOOR, 
-    MESH_COUNT 
+enum
+{
+    L3_MESH_CUBE = 0,
+    L3_MESH_SPHERE,
+    L3_MESH_CYLINDER,
+    L3_MESH_FLOOR,
+    L3_L3_MESH_COUNT
 };
 
-static Mesh     SMeshes[MESH_COUNT];
+static Mesh     SMeshes[L3_L3_MESH_COUNT];
 static Material SMaterial;
 
 static void LoadResources(void) 
 {
-    SMeshes[MESH_CUBE] = GenMeshCube(1, 1, 1);
-    SMeshes[MESH_SPHERE] = GenMeshSphere(0.5f, 16, 16);
-    SMeshes[MESH_CYLINDER] = GenMeshCylinder(0.4f, 1, 16);
-    SMeshes[MESH_FLOOR] = GenMeshPlane(20, 20, 1, 1);
+    SMeshes[L3_MESH_CUBE] = GenMeshCube(1, 1, 1);
+    SMeshes[L3_MESH_SPHERE] = GenMeshSphere(0.5f, 16, 16);
+    SMeshes[L3_MESH_CYLINDER] = GenMeshCylinder(0.4f, 1, 16);
+    SMeshes[L3_MESH_FLOOR] = GenMeshPlane(20, 20, 1, 1);
     SMaterial = LoadMaterialDefault();
 }
 
 static void UnloadResources(void) 
 {
-    for (int i = 0; i < MESH_COUNT; i++) 
+    for (int i = 0; i < L3_L3_MESH_COUNT; i++) 
     {
         UnloadMesh(SMeshes[i]);
     }
@@ -113,7 +108,7 @@ static void LEVEL_3_Init(Game* game)
         Actor* a = ACTOR_Create(game);
 		if (!a) return;
 		ACTOR_SetPosition(a, (Vector3) { 0, -0.001f, 0 });
-        MeshComponent* mc = MESH_COMPONENT_Create(a, &SMeshes[MESH_FLOOR], &SMaterial);
+        MeshComponent* mc = MESH_COMPONENT_Create(a, &SMeshes[L3_MESH_FLOOR], &SMaterial);
 		mc->tint = GRAY;
     }
 
@@ -123,7 +118,7 @@ static void LEVEL_3_Init(Game* game)
         Actor* a = ACTOR_Create(game);
         if (!a) return;
         ACTOR_SetPosition(a, (Vector3) { (float)(i * 3 - 6), 0.5f, 0 });
-        MESH_COMPONENT_Create(a, &SMeshes[MESH_CUBE], &SMaterial);
+        MESH_COMPONENT_Create(a, &SMeshes[L3_MESH_CUBE], &SMaterial);
     }
 
     /* Spinning sphere */
@@ -132,7 +127,7 @@ static void LEVEL_3_Init(Game* game)
         if (!a) return;
         ACTOR_SetPosition(a, (Vector3) { 0, 1, 5 });
         ACTOR_SetScale(a, 2.0f);
-        MeshComponent* mc = MESH_COMPONENT_Create(a, &SMeshes[MESH_SPHERE], &SMaterial);
+        MeshComponent* mc = MESH_COMPONENT_Create(a, &SMeshes[L3_MESH_SPHERE], &SMaterial);
 		mc->tint = RED;
         SPIN_COMPONENT_Create(a, 1.5f);
     }
@@ -143,7 +138,7 @@ static void LEVEL_3_Init(Game* game)
         if (!a) return;
         ACTOR_SetPosition(a, (Vector3) { 0, 1, -5 });
         ACTOR_SetScale(a, 1.5f);
-        MeshComponent* mc = MESH_COMPONENT_Create(a, &SMeshes[MESH_CYLINDER], &SMaterial);
+        MeshComponent* mc = MESH_COMPONENT_Create(a, &SMeshes[L3_MESH_CYLINDER], &SMaterial);
 		mc->tint = SKYBLUE;
         BOB_COMPONENT_Create(a, 1.0f, 0.6f, 2.5f);
     }
@@ -154,7 +149,7 @@ static void LEVEL_3_Init(Game* game)
         if (!a) return;
         ACTOR_SetPosition(a, (Vector3) { 5, 1.5f, 0 });
         ACTOR_SetScale(a, 1.2f);
-        MeshComponent* mc = MESH_COMPONENT_Create(a, &SMeshes[MESH_CUBE], &SMaterial);
+        MeshComponent* mc = MESH_COMPONENT_Create(a, &SMeshes[L3_MESH_CUBE], &SMaterial);
         mc->tint = GREEN;
         SPIN_COMPONENT_Create(a, 2.0f);
         BOB_COMPONENT_Create(a, 1.5f, 0.8f, 2.0f);
@@ -183,7 +178,7 @@ static void LEVEL_3_Input(Game* game)
             ACTOR_SetPosition(a, (Vector3) { x, 0.5f, z });
             ACTOR_SetScale(a, 0.6f);
             Color colors[] = { RED, ORANGE, YELLOW, GREEN, SKYBLUE, PURPLE };
-            MeshComponent* mc = MESH_COMPONENT_Create(a, &SMeshes[MESH_CUBE], &SMaterial);
+            MeshComponent* mc = MESH_COMPONENT_Create(a, &SMeshes[L3_MESH_CUBE], &SMaterial);
 			mc->tint = colors[GetRandomValue(0, 5)];
             SPIN_COMPONENT_Create(a, 1.0f + (float)GetRandomValue(0, 30) / 10.0f);
         }
@@ -197,7 +192,7 @@ static void LEVEL_3_Input(Game* game)
             float x = (float)GetRandomValue(-8, 7);
             float z = (float)GetRandomValue(-8, 7);
             ACTOR_SetPosition(a, (Vector3) { x, 0.8f, z });
-            MeshComponent* mc = MESH_COMPONENT_Create(a, &SMeshes[MESH_SPHERE], &SMaterial);
+            MeshComponent* mc = MESH_COMPONENT_Create(a, &SMeshes[L3_MESH_SPHERE], &SMaterial);
 			mc->tint = ORANGE;
             BOB_COMPONENT_Create(a, 0.8f, 0.4f, 3.0f);
         }

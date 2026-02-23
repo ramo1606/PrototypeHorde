@@ -26,3 +26,11 @@ void   MEMORY_FreeActor(MemorySystem* memory, Actor* actor);
 /* Component allocation — variable size */
 void* MEMORY_AllocComponent(MemorySystem* memory, size_t size);
 void  MEMORY_FreeComponent(MemorySystem* memory, void* comp);
+
+/* Stats */
+int    MEMORY_GetActorPoolUsed(const MemorySystem* memory);
+int    MEMORY_GetActorPoolTotal(const MemorySystem* memory);
+size_t MEMORY_GetComponentPoolUsed(const MemorySystem* memory);
+size_t MEMORY_GetComponentPoolTotal(const MemorySystem* memory);
+size_t MEMORY_GetComponentPoolFree(const MemorySystem* memory);
+int    MEMORY_GetComponentPoolFreeListLength(const MemorySystem* memory);
