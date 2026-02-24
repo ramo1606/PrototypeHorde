@@ -3,8 +3,6 @@
 #include <assert.h>
 #include <stddef.h>
 
-extern Level LEVEL_2;
-
 static void LEVEL_1_Input(Game* game) 
 {
     assert(game != NULL);
@@ -13,7 +11,8 @@ static void LEVEL_1_Input(Game* game)
 
     if (IsKeyPressed(KEY_TAB)) 
     {
-        GAME_ChangeLevel(game, &LEVEL_2);
+        return;
+        //GAME_ChangeLevel(game, &LEVEL_2);
     }
 }
 

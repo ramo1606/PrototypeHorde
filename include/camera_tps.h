@@ -3,22 +3,24 @@
 #include "camera_component.h"
 #include "raymath.h"
 
+typedef struct CameraTPS CameraTPS;
 typedef struct Actor Actor;
 
-typedef struct
+struct CameraTPS
 {
-    CameraComponent cameraComponent;
+    CameraComponent base;
 
-    /* Spring state */
     Vector3 actualPos;
     Vector3 velocity;
 
-    /* Tuning */
-    float horzDist;        /* Distance behind the owner */
-    float vertDist;        /* Distance above the owner */
-    float targetDist;      /* Look-at point in front of owner */
-    float springConstant;  /* Higher = stiffer follow */
-} CameraTPS;
+    float horzDist;
+    float vertDist;
+    float targetDist;
+    float springConstant;
+};
 
 CameraTPS* CAMERA_TPS_Create(Actor* owner);
 void CAMERA_TPS_SnapToIdeal(CameraTPS* ctps);
+
+void CAMERA_TPS_SetDistances(CameraTPS* ctps, float horz, float vert, float target);
+void CAMERA_TPS_SetSpring(CameraTPS* ctps, float springConstant);

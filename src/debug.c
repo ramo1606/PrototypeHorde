@@ -37,6 +37,19 @@ void DEBUG_Init(void)
     GuiSetStyle(DEFAULT, TEXT_SIZE, 14);
 }
 
+void DEBUG_Shutdown(void)
+{
+	/* Nothing to clean up for now */
+}
+
+void DEBUG_RegisterTool(DebugTool tool)
+{
+}
+
+void DEBUG_UnregisterTool(const char* name)
+{
+}
+
 void DEBUG_Update(Game* game) 
 {
     (void)game;
@@ -254,12 +267,29 @@ void DEBUG_Render(Game* game)
         panelX, y, 14, compColor);
 }
 
-bool DEBUG_IsVisible(void)
+void DEBUG_Render3D(Game* game)
 {
-    return Debug.visible;
 }
 
-void DEBUG_SetVisible(bool visible)
+bool DEBUG_IsMasterVisible(void)
 {
-    Debug.visible = visible;
+    return false;
+}
+
+void DEBUG_SetMasterVisible(bool visible)
+{
+}
+
+bool DEBUG_IsToolEnabled(const char* name)
+{
+    return false;
+}
+
+void DEBUG_SetToolEnabled(const char* name, bool enabled)
+{
+}
+
+DebugTool* DEBUG_GetToolByIndex(int index)
+{
+    return NULL;
 }

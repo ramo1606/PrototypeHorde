@@ -11,7 +11,7 @@
 static void MoveUpdate(Component* self, float deltaTime) 
 {
 	assert(self != NULL);
-    if(self->type != COMPONENT_MOVE) 
+    if(self->type != COMPONENT_TYPE_MOVE) 
     {
         return;
 	}
@@ -47,7 +47,7 @@ MoveComponent* MOVE_COMPONENT_Create(Actor* owner)
     MoveComponent* mc = (MoveComponent*)MEMORY_AllocComponent(&owner->game->memory, sizeof(MoveComponent));
     if (!mc) return NULL;
 
-    COMPONENT_Init(&mc->base, owner, COMPONENT_MOVE, 10);
+    COMPONENT_Init(&mc->base, owner, COMPONENT_TYPE_MOVE, 10);
     mc->base.Update = MoveUpdate;
 
     mc->angularSpeed = 0.0f;
@@ -59,5 +59,8 @@ MoveComponent* MOVE_COMPONENT_Create(Actor* owner)
 
 void MOVE_COMPONENT_SetSpeeds(MoveComponent* mc, float forward, float angular, float strafe)
 {
-    
+    assert(mc != NULL);
+    mc->forwardSpeed = forward;
+    mc->angularSpeed = angular;
+    mc->strafeSpeed = strafe;
 }

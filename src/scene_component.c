@@ -30,7 +30,7 @@ void SCENE_COMPONENT_InitRoot(SceneComponent* sc, Actor* owner)
     assert(owner != NULL);
 
     sc->base.owner       = owner;
-    sc->base.type        = COMPONENT_SCENE;
+    sc->base.type        = COMPONENT_TYPE_SCENE;
     sc->base.updateOrder = 0;
     sc->base.Update      = NULL;
     sc->base.Input       = NULL;

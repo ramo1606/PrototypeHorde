@@ -10,7 +10,7 @@ static void BoxComponentUpdate(Component* self, float deltaTime)
 {
     (void)deltaTime;
     BoxComponent* bc = (BoxComponent*)self;
-    Actor* owner = bc->component.owner;
+    Actor* owner = bc->base.owner;
 
     SCENE_COMPONENT_ComputeWorldTransform(&owner->root);
 
@@ -20,7 +20,7 @@ static void BoxComponentUpdate(Component* self, float deltaTime)
 static void BoxComponentDestroy(Component* self)
 {
     BoxComponent* bc = (BoxComponent*)self;
-    PHYS_WORLD_RemoveBox(&bc->component.owner->game->physWorld, bc);
+    PHYS_WORLD_RemoveBox(&bc->base.owner->game->physWorld, bc);
 }
 
 BoxComponent* BOX_COMPONENT_Create(Actor* owner)
@@ -31,9 +31,9 @@ BoxComponent* BOX_COMPONENT_Create(Actor* owner)
         &owner->game->memory, sizeof(BoxComponent));
     if (!bc) return NULL;
 
-    COMPONENT_Init(&bc->component, owner, COMPONENT_BOX, 300);
-    bc->component.Update = BoxComponentUpdate;
-    bc->component.Destroy = BoxComponentDestroy;
+    COMPONENT_Init(&bc->base, owner, COMPONENT_TYPE_BOX, 300);
+    bc->base.Update = BoxComponentUpdate;
+    bc->base.Destroy = BoxComponentDestroy;
 
     bc->objectBox = (BoundingBox){ 0 };
     bc->worldBox = (BoundingBox){ 0 };

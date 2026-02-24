@@ -80,8 +80,6 @@ void MEMORY_FreeComponent(MemorySystem* memory, void* comp)
     if (comp) MemPoolFree(&memory->componentPool, comp);
 }
 
-/* ── Stats ─────────────────────────────────────────────────────── */
-
 int MEMORY_GetActorPoolUsed(const MemorySystem* memory)
 {
     assert(memory != NULL);
@@ -117,7 +115,6 @@ size_t MEMORY_GetComponentPoolFree(const MemorySystem* memory)
 int MEMORY_GetComponentPoolFreeListLength(const MemorySystem* memory)
 {
     assert(memory != NULL);
-    /* Count nodes in large list + all bucket lists as fragmentation indicator */
     int count = (int)memory->componentPool.large.len;
     for (int i = 0; i < MEMPOOL_BUCKET_SIZE; i++)
     {

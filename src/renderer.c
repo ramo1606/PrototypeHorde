@@ -62,7 +62,53 @@ bool RENDERER_IsAABBInFrustum(const FrustumPlane planes[6], BoundingBox box)
     return true;
 }
 
-/* ── Internal: build draw list ────────────────────────────────── */
+bool RENDERER_IsPointInFrustum(const FrustumPlane planes[6], Vector3 point)
+{
+    for (int i = 0; i < 6; i++)
+    {
+        float dist = planes[i].a * point.x + planes[i].b * point.y + planes[i].c * point.z + planes[i].d;
+        if (dist < 0) return false;
+    }
+	return true;
+}
+
+bool RENDERER_IsSphereInFrustum(const FrustumPlane planes[6], Vector3 center, float radius)
+{
+    for (int i = 0; i < 6; i++)
+    {
+        float dist = planes[i].a * center.x + planes[i].b * center.y + planes[i].c * center.z + planes[i].d;
+        if (dist < -radius) return false;
+    }
+	return true;
+}
+
+Vector2 RENDERER_WorldToScreen(const Renderer* renderer, Vector3 worldPos)
+{
+	assert(renderer != NULL);
+    Vector3 camPos = renderer->camera.position;
+    Vector3 camTarget = renderer->camera.target;
+    Vector3 camUp = renderer->camera.up;
+    Matrix view = GetCameraMatrix(renderer->camera);
+    float aspect = (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT;
+    Matrix proj = MatrixPerspective(renderer->camera.fovy * DEG2RAD, aspect, RENDERER_NEAR_PLANE, RENDERER_FAR_PLANE);
+    Vector3 clipSpacePos = Vector3Transform(worldPos, MatrixMultiply(view, proj));
+    if (clipSpacePos.z <= 0)
+    {
+        return (Vector2){ -1, -1 }; // Behind camera
+    }
+    return (Vector2){
+        (int)((clipSpacePos.x / clipSpacePos.z + 1) * 0.5f * SCREEN_WIDTH),
+        (int)((1 - (clipSpacePos.y / clipSpacePos.z + 1) * 0.5f) * SCREEN_HEIGHT)
+	};
+}
+
+bool RENDERER_IsOnScreen(const Renderer* renderer, Vector3 worldPos)
+{
+	assert(renderer != NULL);
+    Vector2 screenPos = RENDERER_WorldToScreen(renderer, worldPos);
+    return screenPos.x >= 0 && screenPos.x < SCREEN_WIDTH &&
+		screenPos.y >= 0 && screenPos.y < SCREEN_HEIGHT;
+}
 
 static void RENDERER_BuildDrawList(Renderer* renderer)
 {
@@ -81,18 +127,15 @@ static void RENDERER_BuildDrawList(Renderer* renderer)
         Actor* owner = mc->scene.base.owner;
         if (owner->state != ACTOR_STATE_ACTIVE) continue;
 
-        /* Compute world AABB from local BB + spatial transform */
         SCENE_COMPONENT_ComputeWorldTransform(&mc->scene);
         BoundingBox worldBB = COLLISION_TransformAABB(mc->localBB, mc->scene.worldTransform);
 
-        /* Frustum test */
         if (!RENDERER_IsAABBInFrustum(renderer->frustum, worldBB))
         {
             renderer->statsCulled++;
             continue;
         }
 
-        /* Compute distance to camera (for potential future sorting) */
         Vector3 center = {
             (worldBB.min.x + worldBB.max.x) * 0.5f,
             (worldBB.min.y + worldBB.max.y) * 0.5f,
@@ -106,7 +149,6 @@ static void RENDERER_BuildDrawList(Renderer* renderer)
     renderer->statsDrawn = renderer->drawCount;
 }
 
-/* Sort by material pointer to batch state changes */
 static int CompareByMaterial(const void* a, const void* b)
 {
     const DrawEntry* da = (const DrawEntry*)a;
@@ -124,7 +166,6 @@ static void RENDERER_SortDrawList(Renderer* renderer)
     }
 }
 
-/* Draw all entries in the draw list */
 static void RENDERER_DrawMeshes(Renderer* renderer)
 {
     for (int i = 0; i < renderer->drawCount; i++)
@@ -172,7 +213,6 @@ void RENDERER_DrawFrame(Renderer* renderer, Game* game)
 
     Level* active = LEVEL_MGR_GetActiveLevel(&game->levelMgr);
 
-    /* Extract frustum planes from current camera BEFORE drawing */
     {
         float aspect = (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT;
         Matrix view = GetCameraMatrix(renderer->camera);
@@ -183,7 +223,6 @@ void RENDERER_DrawFrame(Renderer* renderer, Game* game)
         RENDERER_ExtractFrustumPlanes(renderer->frustum, vp);
     }
 
-    /* Build and sort draw list */
     RENDERER_BuildDrawList(renderer);
     RENDERER_SortDrawList(renderer);
 
@@ -264,6 +303,12 @@ void RENDERER_SetCamera(Renderer* renderer, Camera3D camera)
 {
     assert(renderer != NULL);
     renderer->camera = camera;
+}
+
+Camera3D RENDERER_GetCamera(const Renderer* renderer)
+{
+    assert(renderer != NULL);
+    return renderer->camera;
 }
 
 void RENDERER_SetClearColor(Renderer* renderer, Color color)

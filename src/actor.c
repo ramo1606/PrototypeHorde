@@ -27,7 +27,7 @@ void ACTOR_Init(Actor* actor, Game* game)
     SCENE_COMPONENT_InitRoot(&actor->root, actor);
 
     actor->state = ACTOR_STATE_ACTIVE;
-    actor->type  = ACTOR_NONE;
+    actor->type  = ACTOR_TYPE_NONE;
     actor->game  = game;
 
     actor->Update = NULL;

@@ -40,7 +40,7 @@ void MESH_COMPONENT_Draw(MeshComponent* mc)
 {
 	assert(mc != NULL);
 
-    if(mc->type == COMPONENT_TYPE_MESH)
+    if(mc->scene.base.type == COMPONENT_TYPE_MESH)
     {
         if (!mc->visible || !mc->mesh || !mc->material) return;
 
@@ -57,15 +57,22 @@ void MESH_COMPONENT_Draw(MeshComponent* mc)
 
 void MESH_COMPONENT_SetVisible(MeshComponent* mc, bool visible)
 {
-
+    assert(mc != NULL);
+    mc->visible = visible;
 }
 
 void MESH_COMPONENT_SetTint(MeshComponent* mc, Color tint)
 {
-
+    assert(mc != NULL);
+    mc->tint = tint;
 }
 
 BoundingBox MESH_COMPONENT_GetWorldBB(MeshComponent* mc)
 {
-
+    assert(mc != NULL);
+    SCENE_COMPONENT_ComputeWorldTransform(&mc->scene);
+    BoundingBox bb = mc->localBB;
+    bb.min = Vector3Transform(bb.min, mc->scene.worldTransform);
+    bb.max = Vector3Transform(bb.max, mc->scene.worldTransform);
+    return bb;
 }

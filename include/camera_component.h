@@ -3,13 +3,14 @@
 #include "scene_component.h"
 #include "raylib.h"
 
+typedef struct CameraComponent CameraComponent;
 typedef struct Actor Actor;
 
-typedef struct
+struct CameraComponent
 {
     SceneComponent scene;
     Camera3D  camera;
-} CameraComponent;
+};
 
 void CAMERA_COMPONENT_Init(CameraComponent* cc, Actor* owner);
 void CAMERA_COMPONENT_Apply(CameraComponent* cc);

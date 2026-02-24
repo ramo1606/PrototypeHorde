@@ -9,7 +9,7 @@ void CAMERA_COMPONENT_Init(CameraComponent* cc, Actor* owner)
     assert(cc != NULL);
     assert(owner != NULL);
 
-    SCENE_COMPONENT_Init(&cc->scene, owner, COMPONENT_CAMERA, 250);
+    SCENE_COMPONENT_Init(&cc->scene, owner, COMPONENT_TYPE_CAMERA, 250);
     SCENE_COMPONENT_AttachChild(&owner->root, &cc->scene);
 
     cc->camera = (Camera3D){

@@ -6,8 +6,6 @@
 #include <stdlib.h>
 #include <float.h>
 
-/* ── Lifecycle ────────────────────────────────────────────────── */
-
 void PHYS_WORLD_Init(PhysWorld* world)
 {
     assert(world != NULL);
@@ -23,7 +21,26 @@ void PHYS_WORLD_Init(PhysWorld* world)
         PHYS_WORLD_MAX_BOXES, PHYS_WORLD_MAX_SPHERES);
 }
 
-/* ── Registration ─────────────────────────────────────────────── */
+void PHYS_WORLD_Shutdown(PhysWorld* world)
+{
+    assert(world != NULL);
+    world->boxCount = 0;
+    world->sphereCount = 0;
+    world->onContact = NULL;
+    world->onPairCollision = NULL;
+
+    TraceLog(LOG_INFO, "PHYS_WORLD: Shutdown");
+}
+
+void PHYS_WORLD_Update(PhysWorld* world, float deltaTime)
+{
+    assert(world != NULL);
+    /* For now, we only do pairwise collision tests. Phase 5 will add a spatial grid. */
+    if (world->onPairCollision)
+    {
+        PHYS_WORLD_TestPairwise(world, world->onPairCollision);
+	}
+}
 
 void PHYS_WORLD_AddBox(PhysWorld* world, BoxComponent* box)
 {
@@ -77,67 +94,79 @@ void PHYS_WORLD_RemoveSphere(PhysWorld* world, SphereComponent* sphere)
     }
 }
 
-/* ── RayCast ──────────────────────────────────────────────────── */
-
-bool PHYS_WORLD_RayCast(PhysWorld* world, Ray ray, float maxDistance,
-    CollisionInfo* outColl)
+bool PHYS_WORLD_RayCast(PhysWorld* world, Ray ray, float maxDist, uint32_t layerMask, CollisionInfo* outHit)
 {
-    assert(world != NULL && outColl != NULL);
+    assert(world != NULL && outHit != NULL);
 
     bool collided = false;
     float closestDist = FLT_MAX;
 
-    /* Test boxes */
     for (int i = 0; i < world->boxCount; i++)
     {
         BoundingBox wb = BOX_COMPONENT_GetWorldBox(world->boxes[i]);
         RayCollision rc = GetRayCollisionBox(ray, wb);
 
-        if (rc.hit && rc.distance <= maxDistance && rc.distance < closestDist)
+        if (rc.hit && rc.distance <= maxDist && rc.distance < closestDist)
         {
             closestDist = rc.distance;
-            outColl->collision.point = rc.point;
-            outColl->collision.normal = rc.normal;
-            outColl->collider = (Component*)world->boxes[i];
-            outColl->actor = world->boxes[i]->component.owner;
+            outHit->point = rc.point;
+            outHit->normal = rc.normal;
+            outHit->collider = (Component*)world->boxes[i];
+            outHit->actor = world->boxes[i]->base.owner;
             collided = true;
         }
     }
 
-    /* Test spheres */
     for (int i = 0; i < world->sphereCount; i++)
     {
         Vector3 center = SPHERE_COMPONENT_GetWorldCenter(world->spheres[i]);
-        float   radius = SPHERE_COMPONENT_GetRadius(world->spheres[i]);
+        float   radius = SPHERE_COMPONENT_GetWorldRadius(world->spheres[i]);
         RayCollision rc = GetRayCollisionSphere(ray, center, radius);
 
-        if (rc.hit && rc.distance <= maxDistance && rc.distance < closestDist)
+        if (rc.hit && rc.distance <= maxDist && rc.distance < closestDist)
         {
             closestDist = rc.distance;
-            outColl->collision.point = rc.point;
-            outColl->collision.normal = rc.normal;
-            outColl->collider = (Component*)world->spheres[i];
-            outColl->actor = world->spheres[i]->component.owner;
+            outHit->point = rc.point;
+            outHit->normal = rc.normal;
+            outHit->collider = (Component*)world->spheres[i];
+            outHit->actor = world->spheres[i]->base.owner;
             collided = true;
         }
     }
 
-    /* Store the actual distance of the closest hit */
     if (collided)
     {
-        outColl->collision.distance = closestDist;
+        outHit->hit = true;
+        outHit->distance = closestDist;
     }
 
     return collided;
 }
 
-/* ── Pairwise ─────────────────────────────────────────────────── */
+bool PHYS_WORLD_RayCastIgnore(PhysWorld* world, Ray ray, float maxDist, uint32_t layerMask, Actor* ignore, CollisionInfo* outHit)
+{
+    return false;
+}
+
+int PHYS_WORLD_OverlapSphere(PhysWorld* world, Vector3 center, float radius, uint32_t layerMask, Actor** outActors, int maxResults)
+{
+    return 0;
+}
+
+int PHYS_WORLD_OverlapBox(PhysWorld* world, BoundingBox box, uint32_t layerMask, Actor** outActors, int maxResults)
+{
+    return 0;
+}
+
+bool PHYS_WORLD_SphereCast(PhysWorld* world, Vector3 origin, float radius, Vector3 direction, float maxDist, uint32_t layerMask, CollisionInfo* outHit)
+{
+    return false;
+}
 
 void PHYS_WORLD_TestPairwise(PhysWorld* world, CollisionPairFn fn)
 {
     assert(world != NULL && fn != NULL);
 
-    /* Box vs Box */
     for (int i = 0; i < world->boxCount; i++)
     {
         BoundingBox a = BOX_COMPONENT_GetWorldBox(world->boxes[i]);
@@ -146,30 +175,30 @@ void PHYS_WORLD_TestPairwise(PhysWorld* world, CollisionPairFn fn)
             BoundingBox b = BOX_COMPONENT_GetWorldBox(world->boxes[j]);
             if (CheckCollisionBoxes(a, b))
             {
-                fn(world->boxes[i]->component.owner,
-                    world->boxes[j]->component.owner);
+                fn(world->boxes[i]->base.owner,
+					world->boxes[j]->base.owner,
+                    (Vector3) {0, 0, 0}, 0.0f);
             }
         }
     }
 
-    /* Sphere vs Sphere */
     for (int i = 0; i < world->sphereCount; i++)
     {
         Vector3 ca = SPHERE_COMPONENT_GetWorldCenter(world->spheres[i]);
-        float   ra = SPHERE_COMPONENT_GetRadius(world->spheres[i]);
+        float   ra = SPHERE_COMPONENT_GetWorldRadius(world->spheres[i]);
         for (int j = i + 1; j < world->sphereCount; j++)
         {
             Vector3 cb = SPHERE_COMPONENT_GetWorldCenter(world->spheres[j]);
-            float   rb = SPHERE_COMPONENT_GetRadius(world->spheres[j]);
+            float   rb = SPHERE_COMPONENT_GetWorldRadius(world->spheres[j]);
             if (CheckCollisionSpheres(ca, ra, cb, rb))
             {
-                fn(world->spheres[i]->component.owner,
-                    world->spheres[j]->component.owner);
+                fn(world->spheres[i]->base.owner,
+                    world->spheres[j]->base.owner,
+                    (Vector3) {0, 0, 0}, 0.0f);
             }
         }
     }
 
-    /* Box vs Sphere */
     for (int i = 0; i < world->boxCount; i++)
     {
         BoundingBox wb = BOX_COMPONENT_GetWorldBox(world->boxes[i]);
@@ -179,14 +208,13 @@ void PHYS_WORLD_TestPairwise(PhysWorld* world, CollisionPairFn fn)
             float   radius = SPHERE_COMPONENT_GetRadius(world->spheres[j]);
             if (CheckCollisionBoxSphere(wb, center, radius))
             {
-                fn(world->boxes[i]->component.owner,
-                    world->spheres[j]->component.owner);
+                fn(world->boxes[i]->base.owner,
+                    world->spheres[j]->base.owner, 
+                    (Vector3) { 0, 0, 0 }, 0.0f);
             }
         }
     }
 }
-
-/* ── Sweep-and-prune (box-only optimization) ──────────────────── */
 
 static int CompareMinX(const void* a, const void* b)
 {
@@ -219,8 +247,9 @@ void PHYS_WORLD_TestSweepAndPrune(PhysWorld* world, CollisionPairFn fn)
 
             if (CheckCollisionBoxes(a, b))
             {
-                fn(world->boxes[i]->component.owner,
-                    world->boxes[j]->component.owner);
+                fn(world->boxes[i]->base.owner,
+                    world->boxes[j]->base.owner,
+                    (Vector3) {0, 0, 0}, 0.0f);
             }
         }
     }
@@ -235,8 +264,9 @@ void PHYS_WORLD_TestSweepAndPrune(PhysWorld* world, CollisionPairFn fn)
             float   radius = SPHERE_COMPONENT_GetRadius(world->spheres[j]);
             if (CheckCollisionBoxSphere(wb, center, radius))
             {
-                fn(world->boxes[i]->component.owner,
-                    world->spheres[j]->component.owner);
+                fn(world->boxes[i]->base.owner,
+                    world->spheres[j]->base.owner,
+                    (Vector3) {0, 0, 0}, 0.0f);
             }
         }
     }
@@ -252,8 +282,9 @@ void PHYS_WORLD_TestSweepAndPrune(PhysWorld* world, CollisionPairFn fn)
             float   rb = SPHERE_COMPONENT_GetRadius(world->spheres[j]);
             if (CheckCollisionSpheres(ca, ra, cb, rb))
             {
-                fn(world->spheres[i]->component.owner,
-                    world->spheres[j]->component.owner);
+                fn(world->spheres[i]->base.owner,
+                    world->spheres[j]->base.owner,
+                    (Vector3) {0, 0, 0}, 0.0f);
             }
         }
     }

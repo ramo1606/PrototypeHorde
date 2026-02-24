@@ -12,6 +12,9 @@
 static void GAME_ProcessInput(Game* game);
 static void GAME_FixedUpdate(Game* game, float deltaTime);
 
+static void GAME_RemoveActiveActorByIndex(Game* game, int idx);
+static void GAME_RemovePendingActorByIndex(Game* game, int idx);
+
 bool GAME_Init(Game* game, Level* initialLevel) 
 {
     if (!game)
@@ -27,7 +30,6 @@ bool GAME_Init(Game* game, Level* initialLevel)
 
     MEMORY_Init(&game->memory);
     
-	/* Initialize Raylib window and settings */
 	InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, GAME_TITLE);
     if (!IsWindowReady())
     {
@@ -38,7 +40,6 @@ bool GAME_Init(Game* game, Level* initialLevel)
     SetWindowState(FLAG_VSYNC_HINT);
 	SetTargetFPS(RENDER_FPS);
 
-    /* Subsystems */
     RENDERER_Init(&game->renderer);
     PHYS_WORLD_Init(&game->physWorld);
     DEBUG_Init();
@@ -85,12 +86,10 @@ void GAME_Run(Game* game)
             frameTime = MAX_DELTA_TIME;
         }
 
-        /* Advance transition timer (even when paused) */
         LEVEL_MGR_Update(&game->levelMgr, game, frameTime);
 		DEBUG_Update(game);
         GAME_ProcessInput(game);
 
-        /* Update clear color based on game state */
         switch (game->state)
         {
         case GAME_STATE_GAMEPLAY:
@@ -107,7 +106,6 @@ void GAME_Run(Game* game)
         game->accumulator += frameTime;
 		game->updateCount = 0;
 
-        /* Save actor transform state before physics updates */
         for (int i = 0; i < game->actorCount; i++)
         {
             SCENE_COMPONENT_SavePrevState(&game->actors[i]->root);
@@ -120,18 +118,14 @@ void GAME_Run(Game* game)
 			game->updateCount++;
         }
 
-        /* Interpolate actor transforms for smooth rendering between fixed updates.
-         * alpha = 0.0 → show previous state, 1.0 → show current state. */
         float alpha = game->accumulator / FIXED_TIMESTEP;
         for (int i = 0; i < game->actorCount; i++)
         {
             SCENE_COMPONENT_InterpolateForRender(&game->actors[i]->root, alpha);
         }
 
-        /* Render frame */
         RENDERER_DrawFrame(&game->renderer, game);
 
-        /* Restore actual physics transforms after rendering */
         for (int i = 0; i < game->actorCount; i++)
         {
             SCENE_COMPONENT_RestoreFromInterpolation(&game->actors[i]->root);
@@ -156,17 +150,14 @@ void GAME_ProcessInput(Game* game)
         game->state = GAME_STATE_QUIT;
     }
 
-    /* Block level and actor input during transitions */
     if (LEVEL_MGR_IsTransitioning(&game->levelMgr)) return;
 
-    /* Level-specific input */
     Level* active = LEVEL_MGR_GetActiveLevel(&game->levelMgr);
     if (active && active->ProcessInput)
     {
         active->ProcessInput(game);
     }
 
-    /* Dispatch to actors */
     if (game->state == GAME_STATE_GAMEPLAY) 
     {
         for (int i = 0; i < game->actorCount; i++) 
@@ -182,10 +173,8 @@ void GAME_FixedUpdate(Game* game, float deltaTime)
 
     if (game->state != GAME_STATE_GAMEPLAY) return;
 
-    /* Don't update gameplay during transitions */
     if (LEVEL_MGR_IsTransitioning(&game->levelMgr)) return;
 
-	/* Phase 1: Update all active actors */
     game->updatingActors = true;
     for (int i = 0; i < game->actorCount; i++) 
     {
@@ -193,7 +182,6 @@ void GAME_FixedUpdate(Game* game, float deltaTime)
     }
     game->updatingActors = false;
 
-    /* Phase 2: Move pending → active */
     for (int i = 0; i < game->pendingCount; i++) 
     {
         Actor *pending = game->pendingActors[i];
@@ -211,7 +199,6 @@ void GAME_FixedUpdate(Game* game, float deltaTime)
     }
     game->pendingCount = 0;
 
-    /* Phase 3: Destroy dead actors (iterate backwards for safe swap-removal) */
     for (int i = game->actorCount - 1; i >= 0; i--) 
     {
         if (game->actors[i]->state == ACTOR_STATE_DEAD) 
@@ -326,4 +313,63 @@ void GAME_ChangeLevel(Game* game, Level* level)
         TRANSITION_DEFAULT_EFFECT_OUT, 
         TRANSITION_DEFAULT_EFFECT_IN,
         TRANSITION_DEFAULT_DURATION);
+}
+
+Actor* GAME_FindActorByTag(Game* game, unsigned int tag)
+{
+    if (!game)
+    {
+        TraceLog(LOG_ERROR, "GAME_FindActorByTag: game pointer is NULL");
+        return NULL;
+    }
+    for (int i = 0; i < game->actorCount; i++)
+    {
+        if ((game->actors[i]->tags & tag) != 0)
+        {
+            return game->actors[i];
+        }
+    }
+    for (int i = 0; i < game->pendingCount; i++)
+    {
+        if ((game->pendingActors[i]->tags & tag) != 0)
+        {
+            return game->pendingActors[i];
+        }
+    }
+	return NULL;
+}
+
+int GAME_FindActorsByTag(Game* game, unsigned int tag, Actor** outArray, int maxResults)
+{
+    if (!game || !outArray || maxResults <= 0)
+    {
+        TraceLog(LOG_ERROR, "GAME_FindActorsByTag: invalid arguments");
+        return 0;
+    }
+    int count = 0;
+    for (int i = 0; i < game->actorCount && count < maxResults; i++)
+    {
+        if ((game->actors[i]->tags & tag) != 0)
+        {
+            outArray[count++] = game->actors[i];
+        }
+    }
+    for (int i = 0; i < game->pendingCount && count < maxResults; i++)
+    {
+        if ((game->pendingActors[i]->tags & tag) != 0)
+        {
+            outArray[count++] = game->pendingActors[i];
+        }
+    }
+	return count;
+}
+
+float GAME_GetTime(Game* game)
+{
+    if (!game)
+    {
+        TraceLog(LOG_ERROR, "GAME_GetTime: game pointer is NULL");
+        return 0.0f;
+    }
+	return GetTime();
 }

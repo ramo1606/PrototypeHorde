@@ -15,9 +15,9 @@ typedef struct Game Game;
 #define GAME_TITLE  "Prototype Horde"
 
 #define UPDATE_RATE 60
-#define FIXED_TIMESTEP (1.0f / (float)UPDATE_RATE)  /* 60 updates per second */
-#define MAX_DELTA_TIME 0.25f                 /* Prevent spiral of death */
-#define RENDER_FPS 30						/* Change to 30 for weak hardware */
+#define FIXED_TIMESTEP (1.0f / (float)UPDATE_RATE)
+#define MAX_DELTA_TIME 0.25f
+#define RENDER_FPS 30
 
 #define GAME_MAX_ACTORS     512
 #define GAME_MAX_PENDING    64
@@ -31,32 +31,25 @@ typedef enum
 
 struct Game
 {
-	/* State */
     GameState state;
 
-	/* Timing */
     float accumulator;
     int updateCount;
 
-    /* Memory */
     MemorySystem memory;
-
-    /* Level management */
     LevelManager levelMgr;
-
-    /* Rendering */
     Renderer renderer;
-
-    /* Physics */
     PhysWorld physWorld;
 
-	/* Actors */
+    /* InputSystem  input;   */         /* Phase 1 */
+    /* EventSystem  events;  */         /* Phase 2 */
+    /* AudioSystem  audio;   */         /* Phase 8 */
+
     Actor *actors[GAME_MAX_ACTORS];
     int    actorCount;
     Actor *pendingActors[GAME_MAX_PENDING];
     int    pendingCount;
     bool updatingActors;
-
     int actorsCreated;
 };
 
@@ -66,8 +59,11 @@ void GAME_Run(Game* game);
 
 void GAME_AddActor(Game* game, Actor* actor);
 void GAME_RemoveActor(Game* game, Actor* actor);
-void GAME_RemoveActiveActorByIndex(Game* game, int idx);
-void GAME_RemovePendingActorByIndex(Game* game, int idx);
 void GAME_RemoveAllActors(Game* game);
 
 void GAME_ChangeLevel(Game* game, Level* level);
+
+Actor* GAME_FindActorByTag(Game* game, unsigned int tag);
+int GAME_FindActorsByTag(Game* game, unsigned int tag, Actor** outArray, int maxResults);
+
+float GAME_GetTime(Game* game);

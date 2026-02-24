@@ -10,7 +10,7 @@ static void SphereComponentUpdate(Component* self, float deltaTime)
 {
     (void)deltaTime;
     SphereComponent* sc = (SphereComponent*)self;
-    Actor* owner = sc->component.owner;
+    Actor* owner = sc->base.owner;
 
     SCENE_COMPONENT_ComputeWorldTransform(&owner->root);
 
@@ -30,7 +30,7 @@ static void SphereComponentUpdate(Component* self, float deltaTime)
 static void SphereComponentDestroy(Component* self)
 {
     SphereComponent* sc = (SphereComponent*)self;
-    PHYS_WORLD_RemoveSphere(&sc->component.owner->game->physWorld, sc);
+    PHYS_WORLD_RemoveSphere(&sc->base.owner->game->physWorld, sc);
 }
 
 SphereComponent* SPHERE_COMPONENT_Create(Actor* owner)
@@ -41,9 +41,9 @@ SphereComponent* SPHERE_COMPONENT_Create(Actor* owner)
         &owner->game->memory, sizeof(SphereComponent));
     if (!sc) return NULL;
 
-    COMPONENT_Init(&sc->component, owner, COMPONENT_SPHERE, 300);
-    sc->component.Update = SphereComponentUpdate;
-    sc->component.Destroy = SphereComponentDestroy;
+    COMPONENT_Init(&sc->base, owner, COMPONENT_TYPE_SPHERE, 300);
+    sc->base.Update = SphereComponentUpdate;
+    sc->base.Destroy = SphereComponentDestroy;
 
     sc->offset = (Vector3){ 0 };
     sc->radius = 0.5f;
@@ -65,6 +65,12 @@ Vector3 SPHERE_COMPONENT_GetWorldCenter(SphereComponent* sc)
 {
     assert(sc != NULL);
     return sc->worldCenter;
+}
+
+float SPHERE_COMPONENT_GetWorldRadius(SphereComponent* sc)
+{
+    assert(sc != NULL);
+	return sc->worldRadius;
 }
 
 float SPHERE_COMPONENT_GetRadius(SphereComponent* sc)

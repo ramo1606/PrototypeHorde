@@ -231,3 +231,9 @@ const char* LEVEL_MGR_GetStateName(const LevelManager* mgr)
         default:                    return "UNKNOWN";
     }
 }
+
+float LEVEL_MGR_GetProgress(const LevelManager* mgr)
+{
+    assert(mgr != NULL);
+	return mgr->progress;
+}
