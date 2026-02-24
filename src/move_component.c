@@ -19,7 +19,6 @@ static void MoveUpdate(Component* self, float deltaTime)
     MoveComponent* mc = (MoveComponent*)self;
     Actor* owner = self->owner;
 
-    /* Yaw rotation around Y axis */
     if (fabsf(mc->angularSpeed) > NEAR_ZERO) 
     {
         float angle = mc->angularSpeed * deltaTime;
@@ -28,7 +27,6 @@ static void MoveUpdate(Component* self, float deltaTime)
         ACTOR_SetRotation(owner, rot);
     }
 
-    /* Linear movement along forward and right */
     if (fabsf(mc->forwardSpeed) > NEAR_ZERO ||
         fabsf(mc->strafeSpeed) > NEAR_ZERO) 
     {
@@ -57,4 +55,9 @@ MoveComponent* MOVE_COMPONENT_Create(Actor* owner)
     mc->strafeSpeed = 0.0f;
 
     return mc;
+}
+
+void MOVE_COMPONENT_SetSpeeds(MoveComponent* mc, float forward, float angular, float strafe)
+{
+    
 }

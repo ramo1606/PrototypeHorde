@@ -7,14 +7,19 @@
 
 static const char* ComponentTypeNames[NUM_COMPONENT_TYPES] =
 {
-    "None",             /* COMPONENT_NONE       = 0 */
-    "Scene",            /* COMPONENT_SCENE      = 1 */
-    "Mesh",             /* COMPONENT_MESH       = 2 */
-    "Move",             /* COMPONENT_MOVE       = 3 */
-    "Camera",           /* COMPONENT_CAMERA     = 4 */
-    "CameraTPS",        /* COMPONENT_CAMERA_TPS = 5 */
-    "Box",              /* COMPONENT_BOX        = 6 */
-    "Sphere",           /* COMPONENT_SPHERE     = 7 */
+    "None",
+    "Scene",
+    "Mesh",
+    "Move",
+    "Camera",
+    "CameraTPS",
+    "Box",
+    "Sphere",
+    "Capsule",
+    "Model",
+    "Audio Source",
+    "AI Controller",
+    "FSM"
 };
 
 void COMPONENT_Init(Component* comp, Actor* owner, ComponentType type, int updateOrder) 

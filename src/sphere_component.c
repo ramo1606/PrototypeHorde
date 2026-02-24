@@ -6,8 +6,6 @@
 #include <assert.h>
 #include <math.h>
 
-/* ── Callbacks ────────────────────────────────────────────────── */
-
 static void SphereComponentUpdate(Component* self, float deltaTime)
 {
     (void)deltaTime;
@@ -16,11 +14,8 @@ static void SphereComponentUpdate(Component* self, float deltaTime)
 
     SCENE_COMPONENT_ComputeWorldTransform(&owner->root);
 
-    /* Transform offset by world matrix to get world center */
     sc->worldCenter = Vector3Transform(sc->offset, owner->root.worldTransform);
 
-    /* Extract uniform scale from world matrix and apply to radius.
-     * Use the max axis scale to be conservative (matches BoxComponent behavior). */
     Vector3 sx = { owner->root.worldTransform.m0, owner->root.worldTransform.m1, owner->root.worldTransform.m2 };
     Vector3 sy = { owner->root.worldTransform.m4, owner->root.worldTransform.m5, owner->root.worldTransform.m6 };
     Vector3 sz = { owner->root.worldTransform.m8, owner->root.worldTransform.m9, owner->root.worldTransform.m10 };
@@ -37,8 +32,6 @@ static void SphereComponentDestroy(Component* self)
     SphereComponent* sc = (SphereComponent*)self;
     PHYS_WORLD_RemoveSphere(&sc->component.owner->game->physWorld, sc);
 }
-
-/* ── Public API ───────────────────────────────────────────────── */
 
 SphereComponent* SPHERE_COMPONENT_Create(Actor* owner)
 {

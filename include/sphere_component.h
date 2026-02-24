@@ -7,17 +7,19 @@ typedef struct Actor Actor;
 
 typedef struct SphereComponent
 {
-    Component component;
-    Vector3   offset;       /* Local-space offset from actor origin */
-    float     radius;       /* Sphere radius (local space) */
-    Vector3   worldCenter;  /* Recomputed each frame */
-    float     worldRadius;  /* Recomputed each frame */
+    Component base;
+    Vector3 offset;
+    float radius;
+    Vector3 worldCenter;
+    float worldRadius;
+    unsigned int layerMask;
+    bool isTrigger;
 } SphereComponent;
 
 SphereComponent* SPHERE_COMPONENT_Create(Actor* owner);
 void SPHERE_COMPONENT_Set(SphereComponent* sc, Vector3 offset, float radius);
-Vector3 SPHERE_COMPONENT_GetWorldCenter(SphereComponent* sc);
-float   SPHERE_COMPONENT_GetRadius(SphereComponent* sc);
 
-/* Debug visualization */
+Vector3 SPHERE_COMPONENT_GetWorldCenter(SphereComponent* sc);
+float SPHERE_COMPONENT_GetWorldRadius(SphereComponent* sc);
+
 void SPHERE_COMPONENT_DrawWires(SphereComponent* sc, Color color);

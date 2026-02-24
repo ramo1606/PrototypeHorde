@@ -3,8 +3,6 @@
 #include <stddef.h>
 #include <assert.h>
 
-/* ── Shared init helper ─────────────────────────────────────────── */
-
 static void SCENE_COMPONENT_InitFields(SceneComponent* sc)
 {
     sc->position = (Vector3){ 0 };
@@ -26,14 +24,11 @@ static void SCENE_COMPONENT_InitFields(SceneComponent* sc)
     }
 }
 
-/* ── Root init (Actor's embedded root — not in component list) ── */
-
 void SCENE_COMPONENT_InitRoot(SceneComponent* sc, Actor* owner)
 {
     assert(sc != NULL);
     assert(owner != NULL);
 
-    /* Init Component fields manually — skip ACTOR_AddComponent */
     sc->base.owner       = owner;
     sc->base.type        = COMPONENT_SCENE;
     sc->base.updateOrder = 0;
@@ -44,8 +39,6 @@ void SCENE_COMPONENT_InitRoot(SceneComponent* sc, Actor* owner)
     SCENE_COMPONENT_InitFields(sc);
 }
 
-/* ── Component init (MeshComponent etc — added to actor) ──────── */
-
 void SCENE_COMPONENT_Init(SceneComponent* sc, Actor* owner, ComponentType type, int updateOrder)
 {
     assert(sc != NULL);
@@ -55,14 +48,11 @@ void SCENE_COMPONENT_Init(SceneComponent* sc, Actor* owner, ComponentType type, 
     SCENE_COMPONENT_InitFields(sc);
 }
 
-/* ── Hierarchy ─────────────────────────────────────────────────── */
-
 void SCENE_COMPONENT_AttachChild(SceneComponent* parent, SceneComponent* child)
 {
     assert(parent != NULL);
     assert(child != NULL);
 
-    /* Detach from old parent first */
     if (child->parent)
     {
         SCENE_COMPONENT_DetachChild(child->parent, child);
@@ -88,7 +78,6 @@ void SCENE_COMPONENT_DetachChild(SceneComponent* parent, SceneComponent* child)
     {
         if (parent->children[i] == child)
         {
-            /* Swap-remove */
             parent->children[i] = parent->children[parent->childCount - 1];
             parent->children[parent->childCount - 1] = NULL;
             parent->childCount--;
@@ -98,13 +87,11 @@ void SCENE_COMPONENT_DetachChild(SceneComponent* parent, SceneComponent* child)
     }
 }
 
-/* ── Dirty propagation ─────────────────────────────────────────── */
-
 void SCENE_COMPONENT_MarkDirty(SceneComponent* sc)
 {
     assert(sc != NULL);
 
-    if (sc->isDirty) return;   /* Already dirty — children already marked */
+    if (sc->isDirty) return;
 
     sc->isDirty = true;
 
@@ -114,21 +101,17 @@ void SCENE_COMPONENT_MarkDirty(SceneComponent* sc)
     }
 }
 
-/* ── World transform (lazy resolve) ───────────────────────────── */
-
 void SCENE_COMPONENT_ComputeWorldTransform(SceneComponent* sc)
 {
     assert(sc != NULL);
 
     if (!sc->isDirty) return;
 
-    /* Ensure parent is resolved first */
     if (sc->parent && sc->parent->isDirty)
     {
         SCENE_COMPONENT_ComputeWorldTransform(sc->parent);
     }
 
-    /* SRT: Scale → Rotate → Translate */
     Matrix s = MatrixScale(sc->scale.x, sc->scale.y, sc->scale.z);
     Matrix r = MatrixRotateXYZ(sc->rotation);
     Matrix t = MatrixTranslate(sc->position.x, sc->position.y, sc->position.z);
@@ -146,15 +129,6 @@ void SCENE_COMPONENT_ComputeWorldTransform(SceneComponent* sc)
 
     sc->isDirty = false;
 }
-
-/* ── Direction helpers ─────────────────────────────────────────── */
-/* 
- * Extract from world matrix columns (normalized to strip scale).
- * Column 0 = transformed X axis = Forward
- * Column 1 = transformed Y axis = Up
- * Column 2 = transformed Z axis = Right
- * Column 3 = translation = World Position
- */
 
 Vector3 SCENE_COMPONENT_GetForward(SceneComponent* sc)
 {
@@ -203,8 +177,6 @@ Actor* SCENE_COMPONENT_GetOwner(SceneComponent* sc)
     return sc->base.owner;
 }
 
-/* ── Render Interpolation ──────────────────────────────────────── */
-
 void SCENE_COMPONENT_SavePrevState(SceneComponent* sc)
 {
     assert(sc != NULL);
@@ -216,14 +188,12 @@ void SCENE_COMPONENT_InterpolateForRender(SceneComponent* sc, float alpha)
 {
     assert(sc != NULL);
 
-    /* Lerp position: renderPos = prev + alpha * (current - prev) */
     Vector3 actualPos = sc->position;
     Vector3 actualRot = sc->rotation;
 
     sc->position = Vector3Lerp(sc->prevPosition, actualPos, alpha);
     sc->rotation = Vector3Lerp(sc->prevRotation, actualRot, alpha);
 
-    /* Store actual values in prev so RestoreFromInterpolation can recover them */
     sc->prevPosition = actualPos;
     sc->prevRotation = actualRot;
 
@@ -234,7 +204,6 @@ void SCENE_COMPONENT_RestoreFromInterpolation(SceneComponent* sc)
 {
     assert(sc != NULL);
 
-    /* prevPosition/prevRotation were set to the actual values by InterpolateForRender */
     sc->position = sc->prevPosition;
     sc->rotation = sc->prevRotation;
 

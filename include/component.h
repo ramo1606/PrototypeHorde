@@ -7,14 +7,19 @@ typedef struct Component Component;
 
 typedef enum 
 {
-    COMPONENT_NONE = 0,
-    COMPONENT_SCENE,
-    COMPONENT_MESH,
-    COMPONENT_MOVE,
-    COMPONENT_CAMERA,
-    COMPONENT_CAMERA_TPS,
-    COMPONENT_BOX,
-    COMPONENT_SPHERE,
+    COMPONENT_TYPE_NONE = 0,
+    COMPONENT_TYPE_SCENE,
+    COMPONENT_TYPE_MESH,
+    COMPONENT_TYPE_MOVE,
+    COMPONENT_TYPE_CAMERA,
+    COMPONENT_TYPE_CAMERA_TPS,
+    COMPONENT_TYPE_BOX,
+    COMPONENT_TYPE_SPHERE,
+    COMPONENT_TYPE_CAPSULE,         /* Phase 5 */
+    COMPONENT_TYPE_MODEL,           /* Phase 7 */
+    COMPONENT_TYPE_AUDIO_SOURCE,    /* Phase 8 */
+    COMPONENT_TYPE_AI_CONTROLLER,   /* Phase 11 */
+    COMPONENT_TYPE_FSM,             /* Phase 3 */
     NUM_COMPONENT_TYPES
 } ComponentType;
 
@@ -24,9 +29,9 @@ typedef void (*ComponentDestroyFn)(Component* self);
 
 struct Component 
 {
-    Actor        *owner;
+    Actor* owner;
     ComponentType type;
-    int           updateOrder;
+    int updateOrder;
 
     ComponentUpdateFn    Update;
     ComponentInputFn     Input;
@@ -37,7 +42,3 @@ void COMPONENT_Init(Component* comp, Actor* owner, ComponentType type, int updat
 void COMPONENT_Destroy(Component* comp);
 
 const char* COMPONENT_GetTypeName(ComponentType type);
-
-//void COMPONENT_LoadProperty(json);
-//void COMPONENT_SaveProperty(json);
-//Component* COMPONENT_Create(Actor* actor, json);

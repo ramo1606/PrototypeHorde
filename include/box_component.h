@@ -4,18 +4,21 @@
 #include "raylib.h"
 #include <stdbool.h>
 
+typedef struct BoxComponent BoxComponent;
 typedef struct Actor Actor;
 
-typedef struct BoxComponent
+struct BoxComponent
 {
-    Component   component;
-    BoundingBox objectBox;  /* Local-space AABB */
-    BoundingBox worldBox;   /* World-space AABB (recomputed each frame) */
-} BoxComponent;
+    Component   base;
+    BoundingBox objectBox;
+    BoundingBox worldBox;
+    unsigned int layerMask;         /* Phase 5: collision layer */
+    bool isTrigger;                 /* Phase 5: overlap only, no blocking */
+};
 
 BoxComponent* BOX_COMPONENT_Create(Actor* owner);
 void BOX_COMPONENT_SetObjectBox(BoxComponent* bc, BoundingBox objectBox);
-BoundingBox BOX_COMPONENT_GetWorldBox(BoxComponent* bc);
+void BOX_COMPONENT_SetFromMesh(BoxComponent* bc, Mesh mesh);
 
-/* Debug visualization */
+BoundingBox BOX_COMPONENT_GetWorldBox(BoxComponent* bc);
 void BOX_COMPONENT_DrawWorldBox(BoxComponent* bc, Color color);

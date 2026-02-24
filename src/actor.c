@@ -67,9 +67,7 @@ void ACTOR_Update(Actor* actor, float deltaTime)
 
     if (actor->state != ACTOR_STATE_ACTIVE) return;
 
-    /* Resolve root transform before components read it */
     ACTOR_ComputeWorldTransform(actor);
-
 	ACTOR_UpdateComponents(actor, deltaTime);
     
     if (actor->Update)
@@ -170,10 +168,9 @@ void ACTOR_RotateToNewForward(Actor* actor, Vector3 forward)
 {
     assert(actor != NULL);
 
-    /* Project onto XZ plane and normalize (ignore Y component) */
     Vector3 flatFwd = { forward.x, 0.0f, forward.z };
     float len = Vector3Length(flatFwd);
-    if (len < 0.0001f) return;   /* Degenerate — pointing straight up/down */
+    if (len < 0.0001f) return;
 
     flatFwd = Vector3Scale(flatFwd, 1.0f / len);
 
@@ -243,4 +240,14 @@ Component *ACTOR_GetComponentOfType(Actor* actor, ComponentType type)
         }
     }
     return NULL;
+}
+
+int ACTOR_GetComponentsOfType(Actor* actor, ComponentType type, Component** outArray, int maxResults)
+{
+
+}
+
+bool ACTOR_HasTag(Actor* actor, unsigned int tag)
+{
+
 }
