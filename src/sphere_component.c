@@ -48,6 +48,9 @@ SphereComponent* SPHERE_COMPONENT_Create(Actor* owner)
     sc->offset = (Vector3){ 0 };
     sc->radius = 0.5f;
     sc->worldCenter = (Vector3){ 0 };
+    sc->worldRadius = 0.5f;
+    sc->layerMask = 0xFFFFFFFF;     /* Default: collides with everything */
+    sc->isTrigger = false;
 
     PHYS_WORLD_AddSphere(&owner->game->physWorld, sc);
 
@@ -73,14 +76,8 @@ float SPHERE_COMPONENT_GetWorldRadius(SphereComponent* sc)
 	return sc->worldRadius;
 }
 
-float SPHERE_COMPONENT_GetRadius(SphereComponent* sc)
-{
-    assert(sc != NULL);
-    return sc->radius;
-}
-
 void SPHERE_COMPONENT_DrawWires(SphereComponent* sc, Color color)
 {
     assert(sc != NULL);
-    DrawSphereWires(sc->worldCenter, sc->radius, 8, 8, color);
+    DrawSphereWires(sc->worldCenter, sc->worldRadius, 8, 8, color);
 }

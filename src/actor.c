@@ -28,6 +28,7 @@ void ACTOR_Init(Actor* actor, Game* game)
 
     actor->state = ACTOR_STATE_ACTIVE;
     actor->type  = ACTOR_TYPE_NONE;
+    actor->tags = 0;
     actor->game  = game;
 
     actor->Update = NULL;
@@ -244,10 +245,23 @@ Component *ACTOR_GetComponentOfType(Actor* actor, ComponentType type)
 
 int ACTOR_GetComponentsOfType(Actor* actor, ComponentType type, Component** outArray, int maxResults)
 {
+    assert(actor != NULL);
+    assert(outArray != NULL);
+    assert(maxResults > 0);
 
+    int count = 0;
+    for (int i = 0; i < actor->componentCount && count < maxResults; i++)
+    {
+        if (actor->components[i]->type == type)
+        {
+            outArray[count++] = actor->components[i];
+        }
+    }
+    return count;
 }
 
 bool ACTOR_HasTag(Actor* actor, unsigned int tag)
 {
-
+    assert(actor != NULL);
+    return (actor->tags & tag) != 0;
 }

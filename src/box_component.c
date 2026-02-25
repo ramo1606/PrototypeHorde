@@ -37,6 +37,8 @@ BoxComponent* BOX_COMPONENT_Create(Actor* owner)
 
     bc->objectBox = (BoundingBox){ 0 };
     bc->worldBox = (BoundingBox){ 0 };
+    bc->layerMask = 0xFFFFFFFF;     /* Default: collides with everything */
+    bc->isTrigger = false;
 
     PHYS_WORLD_AddBox(&owner->game->physWorld, bc);
 
@@ -51,7 +53,8 @@ void BOX_COMPONENT_SetObjectBox(BoxComponent* bc, BoundingBox objectBox)
 
 void BOX_COMPONENT_SetFromMesh(BoxComponent* bc, Mesh mesh)
 {
-    
+    assert(bc != NULL);
+    bc->objectBox = GetMeshBoundingBox(mesh);
 }
 
 BoundingBox BOX_COMPONENT_GetWorldBox(BoxComponent* bc)

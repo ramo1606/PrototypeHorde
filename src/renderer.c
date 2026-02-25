@@ -85,9 +85,6 @@ bool RENDERER_IsSphereInFrustum(const FrustumPlane planes[6], Vector3 center, fl
 Vector2 RENDERER_WorldToScreen(const Renderer* renderer, Vector3 worldPos)
 {
 	assert(renderer != NULL);
-    Vector3 camPos = renderer->camera.position;
-    Vector3 camTarget = renderer->camera.target;
-    Vector3 camUp = renderer->camera.up;
     Matrix view = GetCameraMatrix(renderer->camera);
     float aspect = (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT;
     Matrix proj = MatrixPerspective(renderer->camera.fovy * DEG2RAD, aspect, RENDERER_NEAR_PLANE, RENDERER_FAR_PLANE);
@@ -170,7 +167,7 @@ static void RENDERER_DrawMeshes(Renderer* renderer)
 {
     for (int i = 0; i < renderer->drawCount; i++)
     {
-        MESH_COMPONENT_Draw((Component*)renderer->drawList[i].mc);
+        MESH_COMPONENT_Draw(renderer->drawList[i].mc);
     }
 }
 

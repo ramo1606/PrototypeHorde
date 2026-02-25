@@ -60,6 +60,7 @@ void GAME_Shutdown(Game* game)
     }
 
     LEVEL_MGR_Shutdown(&game->levelMgr, game);
+    PHYS_WORLD_Shutdown(&game->physWorld);
     RENDERER_Shutdown(&game->renderer);
 
     CloseWindow();

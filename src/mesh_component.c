@@ -1,5 +1,6 @@
 #include "mesh_component.h"
 #include "actor.h"
+#include "collision.h"
 #include "game.h"
 #include "renderer.h"
 #include <assert.h>
@@ -40,19 +41,16 @@ void MESH_COMPONENT_Draw(MeshComponent* mc)
 {
 	assert(mc != NULL);
 
-    if(mc->scene.base.type == COMPONENT_TYPE_MESH)
-    {
-        if (!mc->visible || !mc->mesh || !mc->material) return;
+    if (!mc->visible || !mc->mesh || !mc->material) return;
 
-        SCENE_COMPONENT_ComputeWorldTransform(&mc->scene);
-        
-        Color original = mc->material->maps[MATERIAL_MAP_DIFFUSE].color;
-        mc->material->maps[MATERIAL_MAP_DIFFUSE].color = mc->tint;
-        
-        DrawMesh(*mc->mesh, *mc->material, mc->scene.worldTransform);
-        
-        mc->material->maps[MATERIAL_MAP_DIFFUSE].color = original;
-    }
+    SCENE_COMPONENT_ComputeWorldTransform(&mc->scene);
+    
+    Color original = mc->material->maps[MATERIAL_MAP_DIFFUSE].color;
+    mc->material->maps[MATERIAL_MAP_DIFFUSE].color = mc->tint;
+    
+    DrawMesh(*mc->mesh, *mc->material, mc->scene.worldTransform);
+    
+    mc->material->maps[MATERIAL_MAP_DIFFUSE].color = original;
 }
 
 void MESH_COMPONENT_SetVisible(MeshComponent* mc, bool visible)
@@ -71,8 +69,5 @@ BoundingBox MESH_COMPONENT_GetWorldBB(MeshComponent* mc)
 {
     assert(mc != NULL);
     SCENE_COMPONENT_ComputeWorldTransform(&mc->scene);
-    BoundingBox bb = mc->localBB;
-    bb.min = Vector3Transform(bb.min, mc->scene.worldTransform);
-    bb.max = Vector3Transform(bb.max, mc->scene.worldTransform);
-    return bb;
+    return COLLISION_TransformAABB(mc->localBB, mc->scene.worldTransform);
 }
