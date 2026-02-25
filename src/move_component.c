@@ -6,10 +6,21 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#define NEAR_ZERO 0.001f
+#define NEAR_ZERO 0.001f  /* Speed threshold below which movement is skipped to avoid FP noise */
 
 static void MoveUpdate(Component* self, float deltaTime) 
 {
+    /*
+     * Apply angular and translational velocities to the owner actor each
+     * fixed timestep.
+     *
+     * Angular: rotate around the world Y axis by angularSpeed * dt.
+     * Forward/Strafe: translate along the actor's current world-space
+     *   forward and right vectors scaled by the respective speed and dt.
+     *
+     * The NEAR_ZERO guard prevents accumulation of floating-point drift
+     * when speeds are effectively zero.
+     */
 	assert(self != NULL);
     if(self->type != COMPONENT_TYPE_MOVE) 
     {
@@ -43,6 +54,11 @@ static void MoveUpdate(Component* self, float deltaTime)
 
 MoveComponent* MOVE_COMPONENT_Create(Actor* owner)
 {
+    /*
+     * Allocate from the component pool, register with the owner at
+     * updateOrder 10 (runs early so the actor position is set before
+     * camera and collider components run at orders 250 and 300).
+     */
 	assert(owner != NULL);
     MoveComponent* mc = (MoveComponent*)MEMORY_AllocComponent(&owner->game->memory, sizeof(MoveComponent));
     if (!mc) return NULL;

@@ -8,6 +8,21 @@
 
 static void SphereComponentUpdate(Component* self, float deltaTime)
 {
+    /*
+     * Recompute the world-space sphere each fixed tick.
+     *
+     * World centre: transform the local offset point through the actor's
+     *   world matrix.
+     *
+     * World radius: extract the scale columns from the world matrix and
+     *   take the maximum magnitude across all three axes.  This ensures
+     *   the world radius encloses the sphere under non-uniform scale
+     *   (conservative but always correct).
+     *
+     *   Column 0 (m0,m1,m2)  = world X axis (scale embedded)
+     *   Column 1 (m4,m5,m6)  = world Y axis
+     *   Column 2 (m8,m9,m10) = world Z axis
+     */
     (void)deltaTime;
     SphereComponent* sc = (SphereComponent*)self;
     Actor* owner = sc->base.owner;
@@ -29,12 +44,22 @@ static void SphereComponentUpdate(Component* self, float deltaTime)
 
 static void SphereComponentDestroy(Component* self)
 {
+    /*
+     * Unregister from the physics world before memory is freed so the
+     * world's sphere list never contains a dangling pointer.
+     */
     SphereComponent* sc = (SphereComponent*)self;
     PHYS_WORLD_RemoveSphere(&sc->base.owner->game->physWorld, sc);
 }
 
 SphereComponent* SPHERE_COMPONENT_Create(Actor* owner)
 {
+    /*
+     * Allocate from the component pool, register at updateOrder 300
+     * (same priority as BoxComponent so all colliders are updated in the
+     * same pass), and register with the physics world.
+     * Default layerMask = 0xFFFFFFFF collides with all layers.
+     */
     assert(owner != NULL);
 
     SphereComponent* sc = (SphereComponent*)MEMORY_AllocComponent(

@@ -11,6 +11,12 @@
 
 static void NormalizePlane(FrustumPlane* p)
 {
+    /*
+     * Divide all four plane coefficients (a,b,c,d) by the magnitude of
+     * the normal (a,b,c) so the plane equation is in Hessian normal form.
+     * After normalisation, dot(normal, point) + d gives the signed
+     * distance from point to the plane.
+     */
     float len = sqrtf(p->a * p->a + p->b * p->b + p->c * p->c);
     if (len > 1e-8f)
     {
@@ -24,6 +30,27 @@ static void NormalizePlane(FrustumPlane* p)
 
 void RENDERER_ExtractFrustumPlanes(FrustumPlane planes[6], Matrix vp)
 {
+    /*
+     * Gribb-Hartmann frustum plane extraction.
+     *
+     * Each frustum plane is a linear combination of the rows of the
+     * view-projection matrix.  In column-major Raylib layout the
+     * "rows" correspond to the m0/m1/m2/m3 ... columns of the struct,
+     * where mN+0, mN+4, mN+8, mN+12 form a logical row.
+     *
+     *   Left   =  row3 + row0  (vp.m3+vp.m0, vp.m7+vp.m4, ...)
+     *   Right  =  row3 - row0
+     *   Bottom =  row3 + row1
+     *   Top    =  row3 - row1
+     *   Near   =  row3 + row2
+     *   Far    =  row3 - row2
+     *
+     * After extraction each plane is normalised so distance comparisons
+     * are meaningful.
+     *
+     * Reference: "Fast Extraction of Viewing Frustum Planes from the
+     * World-View-Projection Matrix" — Gribb & Hartmann, 2001.
+     */
     /* Left:   row3 + row0 */
     planes[0] = (FrustumPlane){ vp.m3 + vp.m0, vp.m7 + vp.m4, vp.m11 + vp.m8,  vp.m15 + vp.m12 };
     /* Right:  row3 - row0 */
@@ -45,6 +72,18 @@ void RENDERER_ExtractFrustumPlanes(FrustumPlane planes[6], Matrix vp)
 
 bool RENDERER_IsAABBInFrustum(const FrustumPlane planes[6], BoundingBox box)
 {
+    /*
+     * Positive-vertex (p-vertex) AABB frustum test.
+     *
+     * For each plane, find the box corner that is most in the direction of
+     * the plane normal (the "positive vertex").  If that corner is on the
+     * negative side of the plane, the entire box is outside the frustum
+     * and we can early-exit with false.
+     *
+     * This is O(6) per box and has no false negatives (all culled boxes
+     * are truly outside).  It may have false positives (intersection
+     * boxes that span a corner), but those are rare and acceptable.
+     */
     for (int i = 0; i < 6; i++)
     {
         /* Find the "positive vertex" — corner most aligned with plane normal */
@@ -64,6 +103,11 @@ bool RENDERER_IsAABBInFrustum(const FrustumPlane planes[6], BoundingBox box)
 
 bool RENDERER_IsPointInFrustum(const FrustumPlane planes[6], Vector3 point)
 {
+    /*
+     * Test a single point against all 6 planes.  Returns false as soon
+     * as the point is found to be on the negative (outside) side of any
+     * plane.
+     */
     for (int i = 0; i < 6; i++)
     {
         float dist = planes[i].a * point.x + planes[i].b * point.y + planes[i].c * point.z + planes[i].d;
@@ -74,6 +118,11 @@ bool RENDERER_IsPointInFrustum(const FrustumPlane planes[6], Vector3 point)
 
 bool RENDERER_IsSphereInFrustum(const FrustumPlane planes[6], Vector3 center, float radius)
 {
+    /*
+     * Sphere frustum test: the sphere is outside the frustum if the
+     * signed distance from its centre to any plane is less than -radius
+     * (the entire sphere is beyond the plane).
+     */
     for (int i = 0; i < 6; i++)
     {
         float dist = planes[i].a * center.x + planes[i].b * center.y + planes[i].c * center.z + planes[i].d;
@@ -84,6 +133,18 @@ bool RENDERER_IsSphereInFrustum(const FrustumPlane planes[6], Vector3 center, fl
 
 Vector2 RENDERER_WorldToScreen(const Renderer* renderer, Vector3 worldPos)
 {
+    /*
+     * Manual NDC → screen-space projection.
+     *
+     * Steps:
+     *   1. Build view and projection matrices from the renderer camera.
+     *   2. Transform worldPos into clip space via VP matrix.
+     *   3. Perform perspective divide (clip.xy / clip.z) to get NDC.
+     *   4. Remap NDC [-1,1] to screen [0, width/height].
+     *
+     * Returns (-1,-1) if the point is behind or on the camera plane
+     * (clipSpacePos.z <= 0) to signal "off-screen behind camera".
+     */
 	assert(renderer != NULL);
     Matrix view = GetCameraMatrix(renderer->camera);
     float aspect = (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT;
@@ -109,6 +170,17 @@ bool RENDERER_IsOnScreen(const Renderer* renderer, Vector3 worldPos)
 
 static void RENDERER_BuildDrawList(Renderer* renderer)
 {
+    /*
+     * Frustum cull all registered meshes and populate the draw list.
+     *
+     * For each visible, active mesh:
+     *   1. Compute its world-space AABB via 8-corner AABB transform.
+     *   2. Test against the 6 frustum planes (positive-vertex method).
+     *   3. If visible, record it in drawList[] with squared distance from
+     *      camera centre to AABB centre (for future depth sorting).
+     *
+     * statsCulled and statsDrawn are updated for debug display.
+     */
     renderer->drawCount = 0;
     renderer->statsCulled = 0;
     renderer->statsDrawn = 0;
@@ -148,6 +220,11 @@ static void RENDERER_BuildDrawList(Renderer* renderer)
 
 static int CompareByMaterial(const void* a, const void* b)
 {
+    /*
+     * Sort draw entries by material pointer (ascending address).
+     * Grouping by material minimises GPU state changes (texture binds,
+     * shader switches) when submitting draw calls sequentially.
+     */
     const DrawEntry* da = (const DrawEntry*)a;
     const DrawEntry* db = (const DrawEntry*)b;
     if (da->mc->material < db->mc->material) return -1;
@@ -173,6 +250,11 @@ static void RENDERER_DrawMeshes(Renderer* renderer)
 
 void RENDERER_Init(Renderer* renderer)
 {
+    /*
+     * Initialise with a default perspective camera positioned to show the
+     * origin at a comfortable angle, a dark blue-grey clear colour, and
+     * all counters zeroed.
+     */
     assert(renderer != NULL);
 
     renderer->camera = (Camera3D){
@@ -205,11 +287,34 @@ void RENDERER_Shutdown(Renderer* renderer)
 
 void RENDERER_DrawFrame(Renderer* renderer, Game* game)
 {
+    /*
+     * Full render pipeline for one frame.
+     *
+     * ── Step 1: Extract frustum planes ─────────────────────────────
+     * Build the combined view-projection matrix and extract 6 frustum
+     * planes using the Gribb-Hartmann method.
+     *
+     * ── Step 2: Build and sort the draw list ───────────────────────
+     * Frustum-cull all registered meshes and sort survivors by material
+     * to minimise GPU state changes.
+     *
+     * ── Step 3: 3D draw pass ────────────────────────────────────────
+     * Draw all surviving meshes, then hand off to the active level for
+     * any additional 3D overlays (debug geometry, etc.).
+     *
+     * ── Step 4: HUD and 2D overlays ────────────────────────────────
+     * Draw the active level's HUD, control hints, pause overlay, and
+     * the debug system's 2D output.
+     *
+     * ── Step 5: Level manager transition overlay ───────────────────
+     * Draw any fade/wipe effects managed by the LevelManager.
+     */
     assert(renderer != NULL);
     assert(game != NULL);
 
     Level* active = LEVEL_MGR_GetActiveLevel(&game->levelMgr);
 
+    /* ── Step 1: Extract frustum planes ─────────────────────────── */
     {
         float aspect = (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT;
         Matrix view = GetCameraMatrix(renderer->camera);
@@ -220,6 +325,7 @@ void RENDERER_DrawFrame(Renderer* renderer, Game* game)
         RENDERER_ExtractFrustumPlanes(renderer->frustum, vp);
     }
 
+    /* ── Step 2: Build and sort the draw list ────────────────────── */
     RENDERER_BuildDrawList(renderer);
     RENDERER_SortDrawList(renderer);
 
@@ -282,6 +388,10 @@ void RENDERER_AddMesh(Renderer* renderer, MeshComponent* mc)
 
 void RENDERER_RemoveMesh(Renderer* renderer, MeshComponent* mc)
 {
+    /*
+     * Swap-remove: replace the found entry with the last entry and
+     * decrement count.  O(n) scan, O(1) remove.
+     */
     assert(renderer != NULL && mc != NULL);
 
     for (int i = 0; i < renderer->meshCount; i++)

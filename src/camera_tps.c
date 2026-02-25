@@ -5,10 +5,16 @@
 #include <assert.h>
 #include <math.h>
 
-#define CAMERA_WALL_OFFSET 0.25f
+#define CAMERA_WALL_OFFSET 0.25f  /* Minimum clearance between the camera and a wall hit (world units) */
 
 static Vector3 ComputeIdealPos(CameraTPS* ctps)
 {
+    /*
+     * The ideal camera position is placed horzDist units behind the actor
+     * along its -forward direction, and vertDist units above it.
+     * "Behind" is computed by negating the forward vector and scaling by
+     * horzDist, so the camera always trails the actor's facing direction.
+     */
     assert(ctps != NULL);
     Actor* owner = CAMERA_COMPONENT_GetOwner(&ctps->base);
     Vector3 pos = owner->root.position;
@@ -21,6 +27,12 @@ static Vector3 ComputeIdealPos(CameraTPS* ctps)
 
 static Vector3 ComputeTarget(CameraTPS* ctps)
 {
+    /*
+     * The look-at target is targetDist units in front of the actor along
+     * its forward direction.  A positive targetDist shifts the look-at
+     * point ahead of the actor so the camera frames it with some visual
+     * lead space.
+     */
     assert(ctps != NULL);
     Actor* owner = CAMERA_COMPONENT_GetOwner(&ctps->base);
     Vector3 fwd = ACTOR_GetForward(owner);
@@ -29,6 +41,17 @@ static Vector3 ComputeTarget(CameraTPS* ctps)
 
 static Vector3 ClampCameraToWorld(CameraTPS* ctps, Vector3 cameraPos)
 {
+    /*
+     * Wall-collision clamping via raycast.
+     *
+     * Cast a ray from the look-at target toward the desired camera position.
+     * If the ray hits world geometry before reaching the camera, pull the
+     * camera in to hit.distance - CAMERA_WALL_OFFSET so it never clips
+     * through walls.
+     *
+     * CAMERA_WALL_OFFSET provides a small gap between the camera and the
+     * surface so the near clip plane does not intersect the wall.
+     */
     Actor* owner = CAMERA_COMPONENT_GetOwner(&ctps->base);
     PhysWorld* world = &owner->game->physWorld;
 
@@ -52,10 +75,28 @@ static Vector3 ClampCameraToWorld(CameraTPS* ctps, Vector3 cameraPos)
 
 static void CameraTPSUpdate(Component* self, float deltaTime)
 {
+    /*
+     * Critically-damped spring follow camera.
+     *
+     * A spring-damper system is used to smoothly chase the ideal position.
+     * "Critically damped" means the dampening coefficient is exactly 2*sqrt(k),
+     * which gives the fastest convergence with no overshoot.
+     *
+     * Each tick:
+     *   1. Compute the ideal position behind the actor.
+     *   2. Compute spring acceleration:
+     *        accel = -k * (actualPos - idealPos) - dampening * velocity
+     *   3. Integrate velocity and position using explicit Euler.
+     *   4. Clamp the result against world geometry.
+     *   5. Push the final position into the Camera3D and apply to renderer.
+     *
+     * Reference: "Game Programming in C++" (Madhav), Chapter 9 — Camera.
+     */
     assert(self != NULL);
     if(self->type != COMPONENT_TYPE_CAMERA_TPS) return;
     CameraTPS* ctps = (CameraTPS*)self;
 
+    /* dampening = 2 * sqrt(k) → critically damped (no overshoot) */
     float dampening = 2.0f * sqrtf(ctps->springConstant);
 
     Vector3 idealPos = ComputeIdealPos(ctps);
@@ -80,6 +121,13 @@ static void CameraTPSUpdate(Component* self, float deltaTime)
 
 CameraTPS* CAMERA_TPS_Create(Actor* owner)
 {
+    /*
+     * Allocate from the component pool, initialise the embedded
+     * CameraComponent, override the component type to CAMERA_TPS and
+     * wire up the spring-damper update callback.  Default distances and
+     * spring constant are set, then SnapToIdeal teleports the camera
+     * to avoid a large initial spring displacement.
+     */
     assert(owner != NULL);
 
     CameraTPS* ctps = (CameraTPS*)MEMORY_AllocComponent(
@@ -105,6 +153,11 @@ CameraTPS* CAMERA_TPS_Create(Actor* owner)
 
 void CAMERA_TPS_SnapToIdeal(CameraTPS* ctps)
 {
+    /*
+     * Immediately place the camera at the ideal position and zero the
+     * spring velocity.  Used after a level transition or teleport to
+     * prevent the spring from playing a large catch-up animation.
+     */
     assert(ctps != NULL);
 
     ctps->actualPos = ComputeIdealPos(ctps);

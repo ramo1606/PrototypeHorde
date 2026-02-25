@@ -8,6 +8,11 @@
 
 void PHYS_WORLD_Init(PhysWorld* world)
 {
+    /*
+     * Zero all collider arrays and clear callbacks.  The colliders
+     * register themselves individually when created, so nothing more
+     * is needed here.
+     */
     assert(world != NULL);
     world->boxCount = 0;
     world->sphereCount = 0;
@@ -26,6 +31,11 @@ void PHYS_WORLD_Init(PhysWorld* world)
 
 void PHYS_WORLD_Shutdown(PhysWorld* world)
 {
+    /*
+     * Reset counters and callbacks.  Individual colliders are destroyed
+     * (and unregistered) through the component system before Shutdown
+     * is called, so the arrays should be empty by the time we reach here.
+     */
     assert(world != NULL);
     world->boxCount = 0;
     world->sphereCount = 0;
@@ -37,6 +47,11 @@ void PHYS_WORLD_Shutdown(PhysWorld* world)
 
 void PHYS_WORLD_Update(PhysWorld* world, float deltaTime)
 {
+    /*
+     * Run the broadphase collision pass.  Currently only the legacy
+     * pairwise callback is supported.  Phase 5 will add a spatial grid
+     * and the onContact detailed callback path.
+     */
     assert(world != NULL);
     /* For now, we only do pairwise collision tests. Phase 5 will add a spatial grid. */
     if (world->onPairCollision)
@@ -47,6 +62,10 @@ void PHYS_WORLD_Update(PhysWorld* world, float deltaTime)
 
 void PHYS_WORLD_AddBox(PhysWorld* world, BoxComponent* box)
 {
+    /*
+     * Append to the flat array.  Swap-remove is used in RemoveBox so
+     * order is not preserved, which is fine for unordered broadphase.
+     */
     assert(world != NULL && box != NULL);
     if (world->boxCount >= PHYS_WORLD_MAX_BOXES)
     {
@@ -58,6 +77,10 @@ void PHYS_WORLD_AddBox(PhysWorld* world, BoxComponent* box)
 
 void PHYS_WORLD_RemoveBox(PhysWorld* world, BoxComponent* box)
 {
+    /*
+     * Swap-remove: replace the found entry with the last entry and
+     * decrement count.  O(n) scan, O(1) remove; avoids shifting.
+     */
     assert(world != NULL && box != NULL);
     for (int i = 0; i < world->boxCount; i++)
     {
@@ -99,6 +122,11 @@ void PHYS_WORLD_RemoveSphere(PhysWorld* world, SphereComponent* sphere)
 
 bool PHYS_WORLD_RayCast(PhysWorld* world, Ray ray, float maxDist, uint32_t layerMask, CollisionInfo* outHit)
 {
+    /*
+     * Brute-force ray test against all registered boxes and spheres.
+     * Tracks the closest hit and fills outHit with its data.
+     * layerMask filtering is reserved for Phase 5 (currently unused).
+     */
     assert(world != NULL && outHit != NULL);
 
     bool collided = false;
@@ -148,6 +176,11 @@ bool PHYS_WORLD_RayCast(PhysWorld* world, Ray ray, float maxDist, uint32_t layer
 
 bool PHYS_WORLD_RayCastIgnore(PhysWorld* world, Ray ray, float maxDist, uint32_t layerMask, Actor* ignore, CollisionInfo* outHit)
 {
+    /*
+     * Same as RayCast but skips any collider whose owner matches ignore.
+     * Used by CameraTPS to avoid the player actor blocking the wall-check
+     * ray.
+     */
     assert(world != NULL && outHit != NULL);
 
     bool collided = false;
@@ -214,6 +247,14 @@ bool PHYS_WORLD_SphereCast(PhysWorld* world, Vector3 origin, float radius, Vecto
 
 void PHYS_WORLD_TestPairwise(PhysWorld* world, CollisionPairFn fn)
 {
+    /*
+     * Brute-force O(n²) broadphase.
+     *
+     * Tests every unique pair within each shape type (box-box,
+     * sphere-sphere) plus all cross-type pairs (box-sphere).  Fires fn
+     * for each overlapping pair.  Simple and correct for small n.
+     * For large scenes use TestSweepAndPrune instead.
+     */
     assert(world != NULL && fn != NULL);
 
     for (int i = 0; i < world->boxCount; i++)
@@ -225,7 +266,7 @@ void PHYS_WORLD_TestPairwise(PhysWorld* world, CollisionPairFn fn)
             if (CheckCollisionBoxes(a, b))
             {
                 fn(world->boxes[i]->base.owner,
-					world->boxes[j]->base.owner,
+				   world->boxes[j]->base.owner,
                     (Vector3) {0, 0, 0}, 0.0f);
             }
         }
@@ -267,6 +308,10 @@ void PHYS_WORLD_TestPairwise(PhysWorld* world, CollisionPairFn fn)
 
 static int CompareMinX(const void* a, const void* b)
 {
+    /*
+     * Comparator for qsort -- sorts BoxComponents ascending by their
+     * world-space AABB min.x, enabling the sweep-and-prune early exit.
+     */
     BoxComponent* ba = *(BoxComponent**)a;
     BoxComponent* bb = *(BoxComponent**)b;
     float ax = BOX_COMPONENT_GetWorldBox(ba).min.x;
@@ -278,6 +323,22 @@ static int CompareMinX(const void* a, const void* b)
 
 void PHYS_WORLD_TestSweepAndPrune(PhysWorld* world, CollisionPairFn fn)
 {
+    /*
+     * Sweep-and-prune broadphase on the X axis for box-box pairs.
+     *
+     * Algorithm:
+     *   1. Sort boxes by min.x using qsort (O(n log n)).
+     *   2. For each box i, sweep forward through j > i.  As soon as
+     *      box j's min.x exceeds box i's max.x, the interval on X is
+     *      exhausted -- no further box can overlap box i on X, so break.
+     *   3. For pairs that pass the X interval test, perform a full AABB
+     *      overlap test and fire fn on hit.
+     *
+     * Box-sphere and sphere-sphere pairs still use brute force because
+     * the sort only applies to boxes.
+     *
+     * Reference: "Real-Time Collision Detection" (Ericson), Ch. 7.
+     */
     assert(world != NULL && fn != NULL);
 
     if (world->boxCount < 2) return;

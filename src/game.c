@@ -17,6 +17,18 @@ static void GAME_RemovePendingActorByIndex(Game* game, int idx);
 
 bool GAME_Init(Game* game, Level* initialLevel) 
 {
+    /*
+     * Initialise the engine in this order (each step depends on the last):
+     *   1. Zero the entire Game struct to avoid undefined fields.
+     *   2. Initialise the memory system (pools must exist before any actor
+     *      or component is created).
+     *   3. Open the Raylib window (must exist before any rendering call).
+     *   4. Initialise renderer, physics, debug, and level manager.
+     *   5. Load the initial level.
+     *
+     * Returns false (without crashing) if a critical step fails, so that
+     * main() can clean up gracefully.
+     */
     if (!game)
     {
         TraceLog(LOG_ERROR, "GAME_Init: game pointer is NULL");
@@ -53,6 +65,15 @@ bool GAME_Init(Game* game, Level* initialLevel)
 
 void GAME_Shutdown(Game* game)
 {
+    /*
+     * Shutdown order is the reverse of init:
+     *   1. Shut down the level manager (unloads the active level and
+     *      destroys all its actors).
+     *   2. Shut down physics and renderer.
+     *   3. Close the Raylib window.
+     *   4. Shut down the memory system last (all objects must be freed
+     *      before the pools are destroyed).
+     */
     if (!game)
     {
         TraceLog(LOG_ERROR, "GAME_Shutdown: game pointer is NULL");
@@ -73,6 +94,38 @@ void GAME_Shutdown(Game* game)
 
 void GAME_Run(Game* game)
 {
+    /*
+     * Fixed-timestep main loop with visual interpolation.
+     *
+     * ── Step 1: Frame time & clamping ──────────────────────────────
+     * Clamp frame time to MAX_DELTA_TIME to prevent the "spiral of
+     * death" (a slow frame causing more updates, causing a slower next
+     * frame, etc.).
+     *
+     * ── Step 2: Level & debug & input ──────────────────────────────
+     * Level manager transition tick, debug system update, and global
+     * input (pause, quit, level-specific input).
+     *
+     * ── Step 3: Save previous state ────────────────────────────────
+     * Snapshot all actor root positions/rotations so that
+     * InterpolateForRender can lerp between previous and current.
+     *
+     * ── Step 4: Fixed update loop ──────────────────────────────────
+     * Drain the accumulator by running N fixed updates at FIXED_TIMESTEP.
+     * Actor updates, physics, and pending-actor promotion happen here.
+     *
+     * ── Step 5: Visual interpolation ───────────────────────────────
+     * Lerp all actor positions by alpha = accumulator / FIXED_TIMESTEP.
+     * This gives sub-frame smooth rendering even when physics runs at 60Hz
+     * and the display runs at 30Hz (or vice versa).
+     *
+     * ── Step 6: Render ─────────────────────────────────────────────
+     * Draw the interpolated frame.
+     *
+     * ── Step 7: Restore physics state ──────────────────────────────
+     * Put all actor positions back to the true physics state so the next
+     * fixed update starts from the correct values.
+     */
     if (!game)
     {
         TraceLog(LOG_ERROR, "GAME_Run: game pointer is NULL");
@@ -81,12 +134,14 @@ void GAME_Run(Game* game)
 
     while (!WindowShouldClose() && game->state != GAME_STATE_QUIT)
     {
+        /* ── Step 1: Frame time & clamping ───────────────────────── */
         float frameTime = GetFrameTime();
         if (frameTime > MAX_DELTA_TIME)
         {
             frameTime = MAX_DELTA_TIME;
         }
 
+        /* ── Step 2: Level, debug, and input ─────────────────────── */
         LEVEL_MGR_Update(&game->levelMgr, game, frameTime);
 		DEBUG_Update(game);
         GAME_ProcessInput(game);
@@ -104,6 +159,7 @@ void GAME_Run(Game* game)
             break;
         }
 
+        /* ── Step 3: Save previous state ─────────────────────────── */
         game->accumulator += frameTime;
 		game->updateCount = 0;
 
@@ -112,6 +168,7 @@ void GAME_Run(Game* game)
             SCENE_COMPONENT_SavePrevState(&game->actors[i]->root);
         }
 
+        /* ── Step 4: Fixed update loop ───────────────────────────── */
         while (game->accumulator >= FIXED_TIMESTEP)
         {
             GAME_FixedUpdate(game, FIXED_TIMESTEP);
@@ -119,14 +176,17 @@ void GAME_Run(Game* game)
 			game->updateCount++;
         }
 
+        /* ── Step 5: Visual interpolation ────────────────────────── */
         float alpha = game->accumulator / FIXED_TIMESTEP;
         for (int i = 0; i < game->actorCount; i++)
         {
             SCENE_COMPONENT_InterpolateForRender(&game->actors[i]->root, alpha);
         }
 
+        /* ── Step 6: Render ──────────────────────────────────────── */
         RENDERER_DrawFrame(&game->renderer, game);
 
+        /* ── Step 7: Restore physics state ───────────────────────── */
         for (int i = 0; i < game->actorCount; i++)
         {
             SCENE_COMPONENT_RestoreFromInterpolation(&game->actors[i]->root);
@@ -136,6 +196,12 @@ void GAME_Run(Game* game)
 
 void GAME_ProcessInput(Game* game)
 {
+    /*
+     * Handle global input (pause toggle, quit) first.  Then forward
+     * to the active level's ProcessInput and to all active actors.
+     * Input is skipped during level transitions to prevent control
+     * bleed-through between levels.
+     */
 	assert(game != NULL);
 
     if (IsKeyPressed(KEY_P)) 
@@ -170,12 +236,31 @@ void GAME_ProcessInput(Game* game)
 
 void GAME_FixedUpdate(Game* game, float deltaTime)
 {
+    /*
+     * One fixed-timestep simulation step.
+     *
+     * ── Step 1: Update all live actors ─────────────────────────────
+     * Set updatingActors = true so any actor created during Update goes
+     * to pendingActors[] instead of being inserted into the live array
+     * mid-iteration.
+     *
+     * ── Step 2: Promote pending actors ─────────────────────────────
+     * After the update pass, compute the world transform of each pending
+     * actor and move it into the live array.  Destroy any that cannot fit.
+     *
+     * ── Step 3: Remove dead actors ─────────────────────────────────
+     * Iterate backwards to destroy actors marked ACTOR_STATE_DEAD without
+     * shifting live actors we have not yet visited.
+     *
+     * Skipped entirely if the game is paused or mid-transition.
+     */
 	assert(game != NULL);
 
     if (game->state != GAME_STATE_GAMEPLAY) return;
 
     if (LEVEL_MGR_IsTransitioning(&game->levelMgr)) return;
 
+    /* ── Step 1: Update all live actors ─────────────────────────── */
     game->updatingActors = true;
     for (int i = 0; i < game->actorCount; i++) 
     {
@@ -183,6 +268,7 @@ void GAME_FixedUpdate(Game* game, float deltaTime)
     }
     game->updatingActors = false;
 
+    /* ── Step 2: Promote pending actors ──────────────────────────── */
     for (int i = 0; i < game->pendingCount; i++) 
     {
         Actor *pending = game->pendingActors[i];
@@ -200,6 +286,7 @@ void GAME_FixedUpdate(Game* game, float deltaTime)
     }
     game->pendingCount = 0;
 
+    /* ── Step 3: Remove dead actors ──────────────────────────────── */
     for (int i = game->actorCount - 1; i >= 0; i--) 
     {
         if (game->actors[i]->state == ACTOR_STATE_DEAD) 
@@ -211,6 +298,12 @@ void GAME_FixedUpdate(Game* game, float deltaTime)
 
 void GAME_AddActor(Game* game, Actor* actor) 
 {
+    /*
+     * Pending actor queue pattern: if an update pass is in progress
+     * (updatingActors == true), defer the addition to pendingActors[] so
+     * the current iteration over actors[] is not invalidated.
+     * Otherwise add directly to the live list.
+     */
     if (!game || !actor) 
     {
         TraceLog(LOG_ERROR, "GAME_AddActor: game or actor pointer is NULL");
@@ -244,6 +337,11 @@ void GAME_AddActor(Game* game, Actor* actor)
 
 void GAME_RemoveActor(Game* game, Actor* actor) 
 {
+    /*
+     * Search both the live and pending arrays.  Uses
+     * GAME_RemoveActiveActorByIndex / GAME_RemovePendingActorByIndex for
+     * O(1) swap-remove once the index is found.
+     */
     if (!game || !actor) 
     {
         TraceLog(LOG_ERROR, "GAME_RemoveActor: game or actor pointer is NULL");
@@ -271,6 +369,11 @@ void GAME_RemoveActor(Game* game, Actor* actor)
 
 void GAME_RemoveActiveActorByIndex(Game* game, int idx)
 {
+    /*
+     * Swap-remove from the live array: replace slot idx with the last
+     * entry and decrement actorCount.  Preserves array density without
+     * shifting.
+     */
 	assert(game != NULL);
     if (!game || idx < 0 || idx >= game->actorCount) return;
 
@@ -281,6 +384,10 @@ void GAME_RemoveActiveActorByIndex(Game* game, int idx)
 
 void GAME_RemovePendingActorByIndex(Game* game, int idx)
 {
+    /*
+     * Swap-remove from the pending array: replace slot idx with the last
+     * pending entry and decrement pendingCount.
+     */
 	assert(game != NULL);
     if (!game || idx < 0 || idx >= game->pendingCount) return;
 
@@ -291,6 +398,10 @@ void GAME_RemovePendingActorByIndex(Game* game, int idx)
 
 void GAME_RemoveAllActors(Game* game)
 {
+    /*
+     * Iterate backwards through the live array (so swap-remove indices
+     * stay valid) then destroy all pending actors.
+     */
     for (int i = game->actorCount - 1; i >= 0; i--) 
     {
         ACTOR_Destroy(game->actors[i]);
@@ -304,6 +415,10 @@ void GAME_RemoveAllActors(Game* game)
 
 void GAME_ChangeLevel(Game* game, Level* level)
 {
+    /*
+     * Delegate to the LevelManager which handles the fade-out, actor
+     * cleanup, level swap, and fade-in sequence.
+     */
     if (!game || !level)
     {
         TraceLog(LOG_ERROR, "GAME_ChangeLevel: game or level pointer is NULL");
@@ -318,6 +433,10 @@ void GAME_ChangeLevel(Game* game, Level* level)
 
 Actor* GAME_FindActorByTag(Game* game, unsigned int tag)
 {
+    /*
+     * Scan both live and pending arrays for the first actor whose tag
+     * bitmask has any bit in common with tag.  O(n) worst case.
+     */
     if (!game)
     {
         TraceLog(LOG_ERROR, "GAME_FindActorByTag: game pointer is NULL");
@@ -342,6 +461,11 @@ Actor* GAME_FindActorByTag(Game* game, unsigned int tag)
 
 int GAME_FindActorsByTag(Game* game, unsigned int tag, Actor** outArray, int maxResults)
 {
+    /*
+     * Collect all matching actors (live then pending) into outArray.
+     * Stops collecting once maxResults is reached.  Returns the count
+     * of actors written.
+     */
     if (!game || !outArray || maxResults <= 0)
     {
         TraceLog(LOG_ERROR, "GAME_FindActorsByTag: invalid arguments");

@@ -10,6 +10,10 @@ static void ACTOR_Init(Actor* actor, Game* game);
 
 Actor* ACTOR_Create(Game* game)
 {
+    /*
+     * Allocate a slot from the ObjPool, initialise it, and register it
+     * with the game.  Returns NULL if the pool is exhausted.
+     */
     assert(game != NULL);
 
     Actor* actor = MEMORY_AllocActor(&game->memory);
@@ -21,6 +25,11 @@ Actor* ACTOR_Create(Game* game)
 
 void ACTOR_Init(Actor* actor, Game* game) 
 {
+    /*
+     * Set all fields to their default/inactive values and call
+     * GAME_AddActor which either adds directly to the live list or to the
+     * pending queue depending on whether a fixed update is in progress.
+     */
 	assert(actor != NULL);
 	assert(game != NULL);
 
@@ -43,6 +52,14 @@ void ACTOR_Init(Actor* actor, Game* game)
 
 void ACTOR_Destroy(Actor* actor) 
 {
+    /*
+     * Teardown order:
+     *   1. Destroy all attached components (back-to-front so removal
+     *      does not shift indices we have not visited yet).
+     *   2. Invoke the actor's own Destroy callback (custom cleanup).
+     *   3. Unregister from the game's actor list.
+     *   4. Return the memory slot to the ObjPool.
+     */
 	assert(actor != NULL);
 
     while (actor->componentCount > 0) 
@@ -64,6 +81,13 @@ void ACTOR_Destroy(Actor* actor)
 
 void ACTOR_Update(Actor* actor, float deltaTime) 
 {
+    /*
+     * Per-fixed-tick update:
+     *   1. Recompute world transform (picks up any SetPosition/SetRotation
+     *      calls from the previous tick or from Init).
+     *   2. Update all attached components in sorted order.
+     *   3. Invoke the actor's own Update callback if set.
+     */
 	assert(actor != NULL);
 
     if (actor->state != ACTOR_STATE_ACTIVE) return;
@@ -79,6 +103,11 @@ void ACTOR_Update(Actor* actor, float deltaTime)
 
 void ACTOR_UpdateComponents(Actor* actor, float deltaTime)
 {
+    /*
+     * Iterate the sorted component array and call each component's Update
+     * callback.  Components without an Update callback are skipped.
+     * The array is pre-sorted by updateOrder so execution order is stable.
+     */
 	assert(actor != NULL);
 
     for (int i = 0; i < actor->componentCount; i++)
@@ -92,6 +121,11 @@ void ACTOR_UpdateComponents(Actor* actor, float deltaTime)
 
 void ACTOR_ProcessInput(Actor* actor) 
 {
+    /*
+     * Forward input to components first (in sorted order), then to the
+     * actor's own Input callback.  This mirrors the update order so input
+     * and update are always processed in the same priority sequence.
+     */
 	assert(actor != NULL);
 
     if (actor->state != ACTOR_STATE_ACTIVE) return;
@@ -112,6 +146,10 @@ void ACTOR_ProcessInput(Actor* actor)
 
 void ACTOR_ComputeWorldTransform(Actor* actor) 
 {
+    /*
+     * Delegate to the root SceneComponent which propagates down the scene
+     * graph to all child nodes.
+     */
 	assert(actor != NULL);
     SCENE_COMPONENT_ComputeWorldTransform(&actor->root);
 }
@@ -167,6 +205,12 @@ void ACTOR_SetScale(Actor* actor, float scale)
 
 void ACTOR_RotateToNewForward(Actor* actor, Vector3 forward) 
 {
+    /*
+     * Project the desired forward direction onto the XZ plane to compute
+     * a yaw-only rotation.  Pitch and roll are ignored so the actor never
+     * tilts.  atan2(-x, -z) maps the OpenGL -Z forward convention to a
+     * Y-rotation angle.
+     */
     assert(actor != NULL);
 
     Vector3 flatFwd = { forward.x, 0.0f, forward.z };
@@ -181,6 +225,12 @@ void ACTOR_RotateToNewForward(Actor* actor, Vector3 forward)
 
 void ACTOR_AddComponent(Actor* actor, Component* comp) 
 {
+    /*
+     * Insertion sort by updateOrder (ascending).  Scan for the first
+     * existing component with a higher order, shift everything right to
+     * make room, and insert.  O(n) worst case but n <= ACTOR_MAX_COMPONENTS
+     * so this is negligible.
+     */
     assert(actor != NULL);
     assert(comp != NULL);
 
@@ -211,6 +261,10 @@ void ACTOR_AddComponent(Actor* actor, Component* comp)
 
 void ACTOR_RemoveComponent(Actor* actor, Component* comp) 
 {
+    /*
+     * Linear scan, shift-left removal.  Maintains sorted order without
+     * a re-sort.  O(n) but component removal is infrequent.
+     */
     assert(actor != NULL);
     assert(comp != NULL);
 
@@ -231,6 +285,11 @@ void ACTOR_RemoveComponent(Actor* actor, Component* comp)
 
 Component *ACTOR_GetComponentOfType(Actor* actor, ComponentType type) 
 {
+    /*
+     * Linear scan — returns the first match.  For most actor archetypes
+     * there is at most one component of each type, so this is O(1) in
+     * practice.
+     */
     assert(actor != NULL);
 
     for (int i = 0; i < actor->componentCount; i++) 
@@ -245,6 +304,11 @@ Component *ACTOR_GetComponentOfType(Actor* actor, ComponentType type)
 
 int ACTOR_GetComponentsOfType(Actor* actor, ComponentType type, Component** outArray, int maxResults)
 {
+    /*
+     * Collect all components matching type into outArray (up to maxResults).
+     * Useful when multiple components of the same type are expected (e.g.
+     * multiple BoxComponents for a compound collider).
+     */
     assert(actor != NULL);
     assert(outArray != NULL);
     assert(maxResults > 0);
@@ -262,6 +326,10 @@ int ACTOR_GetComponentsOfType(Actor* actor, ComponentType type, Component** outA
 
 bool ACTOR_HasTag(Actor* actor, unsigned int tag)
 {
+    /*
+     * Bitwise AND test — true if any bit of tag is set in the actor's
+     * tag bitmask.  Designed for fast tag-based scene queries.
+     */
     assert(actor != NULL);
     return (actor->tags & tag) != 0;
 }

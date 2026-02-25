@@ -8,6 +8,20 @@
 
 void MEMORY_Init(MemorySystem* memory)
 {
+    /*
+     * Create both pool allocators.  The rmem library allocates each pool
+     * from the system heap in a single contiguous block.
+     *
+     * actorPool  — ObjPool: fixed-size slab allocator for Actor structs.
+     *              All slots are sizeof(Actor) bytes; alloc/free are O(1).
+     *
+     * componentPool — MemPool: general-purpose variable-size allocator
+     *              backed by a COMPONENT_POOL_BYTES arena with a free-list
+     *              of buckets.  Used for all component types.
+     *
+     * If either pool fails to allocate (out-of-memory), the error is
+     * logged and the partially-initialised allocator is cleaned up.
+     */
     assert(memory != NULL);
 
     memory->actorPool = CreateObjPool(sizeof(Actor), ACTOR_POOL_COUNT);
@@ -33,6 +47,12 @@ void MEMORY_Init(MemorySystem* memory)
 
 void MEMORY_Shutdown(MemorySystem* memory)
 {
+    /*
+     * Destroy both pools in reverse creation order.  This releases the
+     * underlying heap allocations made by the rmem library.
+     * All actors and components must already be freed before this is called
+     * (GAME_Shutdown ensures that via GAME_RemoveAllActors).
+     */
     assert(memory != NULL);
 
     DestroyMemPool(&memory->componentPool);
@@ -43,6 +63,11 @@ void MEMORY_Shutdown(MemorySystem* memory)
 
 Actor* MEMORY_AllocActor(MemorySystem* memory)
 {
+    /*
+     * Claim one fixed-size slot from the ObjPool.  ObjPool internally
+     * manages a free-list of pre-allocated slots, so this is O(1) with
+     * no fragmentation.  Returns NULL if ACTOR_POOL_COUNT is exhausted.
+     */
     assert(memory != NULL);
 
     Actor* actor = (Actor*)ObjPoolAlloc(&memory->actorPool);
@@ -56,12 +81,22 @@ Actor* MEMORY_AllocActor(MemorySystem* memory)
 
 void MEMORY_FreeActor(MemorySystem* memory, Actor* actor)
 {
+    /*
+     * Return the slot to the ObjPool free-list.  O(1) operation.
+     * Silently ignores NULL actors.
+     */
     assert(memory != NULL);
     if (actor) ObjPoolFree(&memory->actorPool, actor);
 }
 
 void* MEMORY_AllocComponent(MemorySystem* memory, size_t size)
 {
+    /*
+     * Allocate size bytes from the MemPool.  The MemPool uses a
+     * bucket free-list for small allocations and a large-block list for
+     * allocations that exceed the bucket threshold.  Returns NULL if the
+     * pool is exhausted.
+     */
     assert(memory != NULL);
     assert(size > 0);
 
@@ -76,6 +111,11 @@ void* MEMORY_AllocComponent(MemorySystem* memory, size_t size)
 
 void MEMORY_FreeComponent(MemorySystem* memory, void* comp)
 {
+    /*
+     * Return the allocation to the MemPool free-list.  The pool places
+     * it back in the appropriate bucket or large-block list based on size.
+     * Silently ignores NULL pointers.
+     */
     assert(memory != NULL);
     if (comp) MemPoolFree(&memory->componentPool, comp);
 }
@@ -114,6 +154,10 @@ size_t MEMORY_GetComponentPoolFree(const MemorySystem* memory)
 
 int MEMORY_GetComponentPoolFreeListLength(const MemorySystem* memory)
 {
+    /*
+     * Count the total number of free-list entries across all bucket sizes
+     * plus the large-block list.  Useful for diagnosing fragmentation.
+     */
     assert(memory != NULL);
     int count = (int)memory->componentPool.large.len;
     for (int i = 0; i < MEMPOOL_BUCKET_SIZE; i++)

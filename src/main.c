@@ -11,6 +11,11 @@ extern Level LEVEL_5;
 /* Main game loop */
 int main(void) 
 {
+    /*
+     * Allocate the Game struct on the heap so its large embedded arrays
+     * (actors, meshes, etc.) do not exhaust the default stack size.
+     * Init → Run → Shutdown is the entire lifecycle.
+     */
     Game* game = (Game*)malloc(sizeof(Game));
     if (!game) 
     {

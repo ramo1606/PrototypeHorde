@@ -6,6 +6,12 @@
 
 void CAMERA_COMPONENT_Init(CameraComponent* cc, Actor* owner)
 {
+    /*
+     * Initialise the embedded SceneComponent at updateOrder 250 (after
+     * movement at 10, before colliders at 300) and attach it to the
+     * actor's scene-graph root.  Initialise the Camera3D to sensible
+     * default values (position behind and above, 45° fov, perspective).
+     */
     assert(cc != NULL);
     assert(owner != NULL);
 
@@ -23,6 +29,11 @@ void CAMERA_COMPONENT_Init(CameraComponent* cc, Actor* owner)
 
 void CAMERA_COMPONENT_Apply(CameraComponent* cc)
 {
+    /*
+     * Push the current Camera3D state into the renderer so it is used
+     * for the next RENDERER_DrawFrame call.  Called at the end of each
+     * camera update (CameraTPSUpdate, etc.).
+     */
     assert(cc != NULL);
 
     Actor* owner = CAMERA_COMPONENT_GetOwner(cc);

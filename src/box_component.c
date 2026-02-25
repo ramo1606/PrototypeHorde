@@ -8,6 +8,15 @@
 
 static void BoxComponentUpdate(Component* self, float deltaTime)
 {
+    /*
+     * Recompute the world-space AABB each fixed tick.
+     *
+     * The actor's world transform is recomputed first (in case it is
+     * still dirty from a SetPosition call), then the local objectBox is
+     * transformed to world space using the 8-corner AABB method
+     * (COLLISION_TransformAABB).  The result is stored in worldBox for
+     * use in raycasts, overlap queries, and pairwise collision tests.
+     */
     (void)deltaTime;
     BoxComponent* bc = (BoxComponent*)self;
     Actor* owner = bc->base.owner;
@@ -19,12 +28,22 @@ static void BoxComponentUpdate(Component* self, float deltaTime)
 
 static void BoxComponentDestroy(Component* self)
 {
+    /*
+     * Unregister from the physics world before memory is freed so the
+     * world's box list never contains a dangling pointer.
+     */
     BoxComponent* bc = (BoxComponent*)self;
     PHYS_WORLD_RemoveBox(&bc->base.owner->game->physWorld, bc);
 }
 
 BoxComponent* BOX_COMPONENT_Create(Actor* owner)
 {
+    /*
+     * Allocate from the component pool, register at updateOrder 300
+     * (after movement and camera so the world transform is final before
+     * the AABB is computed), and register with the physics world.
+     * Default layerMask = 0xFFFFFFFF collides with all layers.
+     */
     assert(owner != NULL);
 
     BoxComponent* bc = (BoxComponent*)MEMORY_AllocComponent(
@@ -53,6 +72,10 @@ void BOX_COMPONENT_SetObjectBox(BoxComponent* bc, BoundingBox objectBox)
 
 void BOX_COMPONENT_SetFromMesh(BoxComponent* bc, Mesh mesh)
 {
+    /*
+     * Derive the local-space AABB directly from mesh vertex data via
+     * Raylib's GetMeshBoundingBox utility.
+     */
     assert(bc != NULL);
     bc->objectBox = GetMeshBoundingBox(mesh);
 }
