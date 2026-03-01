@@ -1,3 +1,31 @@
+﻿/*******************************************************************************************
+*
+*   actor.h — Actor (Game Entity)
+*
+*   An Actor is the fundamental game entity — anything that exists in the world (player,
+*   enemies, props, cameras, triggers). Actors own a list of Components that define their
+*   behavior, and a root SceneComponent that places them in the scene hierarchy.
+*
+*   Architecture:
+*       Game ──manages──▶ Actor[]
+*                            │
+*                            ├── root (SceneComponent) — position, rotation, scale
+*                            └── components[] — sorted by updateOrder
+*
+*   Lifecycle:
+*       ACTOR_Create()  → Allocates from pool, calls Init, registers with Game
+*       ACTOR_Update()  → Recomputes transform, updates components, calls custom Update
+*       ACTOR_Destroy() → Destroys all components, calls custom Destroy, frees to pool
+*
+*   Double-Buffer Pattern:
+*       Actors created during the update loop go into a pending list and are promoted
+*       to the active list at the end of the frame. This prevents iterator invalidation.
+*
+*   Naming Convention:
+*       Enums:   ACTOR_STATE_*, ACTOR_TYPE_*
+*       API:     ACTOR_*
+*
+********************************************************************************************/
 #pragma once
 
 #include "raylib.h"
@@ -13,9 +41,9 @@ typedef struct Actor Actor;
 
 typedef enum 
 {
-    ACTOR_STATE_ACTIVE,
-    ACTOR_STATE_PAUSED,
-    ACTOR_STATE_DEAD,
+    ACTOR_STATE_ACTIVE,             /* Updated and rendered normally                  */
+    ACTOR_STATE_PAUSED,             /* Skipped during update (still rendered)         */
+    ACTOR_STATE_DEAD,               /* Marked for destruction at end of frame         */
 } ActorState;
 
 typedef enum
