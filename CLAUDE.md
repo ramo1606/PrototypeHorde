@@ -104,43 +104,6 @@ Each frame (`RENDERER_DrawFrame`):
 
 `localBB` in MeshComponent is for rendering only (frustum culling). BoxComponent's `objectBox` is for collision only. Same mesh can have different collision and rendering bounds.
 
-### BoxComponent vs MeshComponent.localBB
-
-These serve different purposes:
-- `BoxComponent.objectBox`: collision volume, set manually, optional per actor, registered with PhysWorld
-- `MeshComponent.localBB`: rendering bounds for frustum culling, computed automatically from mesh data, registered with Renderer
-
-An actor can have a mesh without collision (decorative), collision without mesh (trigger), or both with different bounds.
-
-## Scene Graph (within each Actor)
-
-```
-Actor
-└─ root (SceneComponent) ─── actor's position/rotation/scale in world
-    ├─ MeshComponent.base ── mesh offset relative to actor
-    ├─ CameraComponent.base ── camera offset relative to actor
-    └─ (other scene children)
-```
-
-Transform propagation: parent dirty → all children dirty. `SCENE_COMPONENT_ComputeWorldTransform` resolves lazily (walks up to root, multiplies local transforms down). No global scene root connecting actors — actors are independent.
-
-## Level System
-
-Levels are static function-table structs (not heap-allocated):
-```c
-Level LEVEL_3 = {
-    .name = "Level 3 - Components",
-    .Init = Level3_Init,
-    .Shutdown = Level3_Shutdown,
-    .ProcessInput = Level3_ProcessInput,
-    .Render3D = Level3_Render3D,
-    .RenderHUD = Level3_RenderHUD,
-};
-```
-
-`LevelManager` handles transitions with animated fade-out/fade-in. `GAME_ChangeLevel` triggers: fade out → destroy all actors → call new level Init → fade in.
-
-
 ## Collision System
 
 ### Primitives
@@ -168,6 +131,107 @@ PHYS_WORLD_TestSweepAndPrune(world, callbackFn);
 
 `CollisionInfo.collider` is `Component*` — check `collider->type` to determine if it's `COMPONENT_BOX` or `COMPONENT_SPHERE`, then cast.
 
+### BoxComponent vs MeshComponent.localBB
+
+These serve different purposes:
+- `BoxComponent.objectBox`: collision volume, set manually, optional per actor, registered with PhysWorld
+- `MeshComponent.localBB`: rendering bounds for frustum culling, computed automatically from mesh data, registered with Renderer
+
+An actor can have a mesh without collision (decorative), collision without mesh (trigger), or both with different bounds.
+
+## Scene Graph (within each Actor)
+
+```
+Actor
+└─ root (SceneComponent) ─── actor's position/rotation/scale in world
+    ├─ MeshComponent.scene ── mesh offset relative to actor
+    ├─ CameraComponent.scene ── camera offset relative to actor
+    └─ (other scene children)
+```
+
+Transform propagation: parent dirty → all children dirty. `SCENE_COMPONENT_ComputeWorldTransform` resolves lazily (walks up to root, multiplies local transforms down). No global scene root connecting actors — actors are independent.
+
+## Level System
+
+Levels are static function-table structs (not heap-allocated):
+```c
+Level LEVEL_3 = {
+    .name = "Level 3 - Components",
+    .Init = Level3_Init,
+    .Shutdown = Level3_Shutdown,
+    .ProcessInput = Level3_ProcessInput,
+    .Render3D = Level3_Render3D,
+    .RenderHUD = Level3_RenderHUD,
+};
+```
+
+`LevelManager` handles transitions with animated fade-out/fade-in. `GAME_ChangeLevel` triggers: fade out → destroy all actors → call new level Init → fade in.
+
+## File Inventory (40 files)
+
+### Core
+- `main.c` — entry point
+- `game.h/c` — Game struct, game loop, actor management
+- `memory.h/c` — pool allocators wrapping rmem
+- `rmem.h` — third-party single-header memory pool library
+
+### Actor-Component
+- `actor.h/c` — Actor struct, lifecycle, component management
+- `component.h/c` — Component base, type enum, init/destroy
+- `spatial_component.h/c` — Scene graph node, transform hierarchy, dirty flags
+
+### Components
+- `mesh_component.h/c` — renderable mesh, embeds SpatialComponent, auto-registers with Renderer
+- `move_component.h/c` — forward/angular speed, applies to actor root
+- `camera_component.h/c` — wraps Camera3D, embeds SpatialComponent
+- `camera_tps.h/c` — third-person spring camera, extends CameraComponent
+- `box_component.h/c` — AABB collider, auto-registers with PhysWorld
+- `sphere_component.h/c` — sphere collider, auto-registers with PhysWorld
+
+### Systems
+- `renderer.h/c` — mesh registry, frustum culling, material sorting, draw pipeline
+- `phys_world.h/c` — collider registry, pairwise/sweep-and-prune/raycast queries
+- `collision.h/c` — AABB 8-corner transform (supplements Raylib's collision API)
+
+### Level Management
+- `level.h` — Level typedef (function table)
+- `level_manager.h/c` — level transitions with animated fade
+- `level_1.c` through `level_5.c` — demo levels
+
+### Debug
+- `debug.h/c` — F1 overlay with FPS graph, timing, actors, rendering stats, memory stats
+
+## Naming Conventions
+
+- Types: `PascalCase` — `MeshComponent`, `PhysWorld`, `Actor`
+- Functions: `MODULE_FunctionName` — `ACTOR_Init`, `MESH_COMPONENT_Create`, `PHYS_WORLD_RayCast`
+- Constants/macros: `UPPER_SNAKE_CASE` — `GAME_MAX_ACTORS`, `COMPONENT_MESH`
+- Local variables: `camelCase`
+- Struct fields: `camelCase`
+- Static/internal functions: `PascalCase` without module prefix (file scope)
+- Enum values: `MODULE_VALUE` — `ACTOR_STATE_ACTIVE`, `COMPONENT_MESH`
+
+## Key Architectural Decisions (and Why)
+
+1. **Flat actor list, no scene root** — Madhav pattern. Simpler, faster iteration. Scene graph only within actors. If inter-actor hierarchy needed later, use `SCENE_COMPONENT_AttachChild` between two actor roots.
+
+2. **SceneComponent embedding vs Component embedding** — Only components that need their own transform in the scene graph embed SceneComponent. Box/Sphere colliders use the actor's root transform directly, so they embed Component.
+
+3. **Madhav BoxComponent over Knight Actor-embedded BB** — Separation of concerns. Not every rendered thing collides, not every collidable thing renders. PhysWorld centralizes collision queries efficiently.
+
+4. **Raylib collision functions over custom implementations** — `CheckCollisionBoxes`, `GetRayCollisionBox`, etc. are already implemented and tested. We only add `COLLISION_TransformAABB` which Raylib lacks.
+
+5. **Frustum culling in Renderer, not in a RenderPass system** — Knight has an abstract RenderPass hierarchy for multi-pass rendering (depth, shadow, lit). We use Raylib's immediate mode, so a single draw pass with frustum cull + material sort is sufficient.
+
+6. **localBB separate from BoxComponent** — MeshComponent.localBB is for rendering (frustum culling), computed automatically from mesh data. BoxComponent.objectBox is for gameplay collision, set manually, lives in PhysWorld. Different purposes, different lifecycles.
+
+## Response Preferences
+
+- **Direct programming question** → Direct answer + justification
+- **Architecture/concept question** → Conceptual explanation, minimal code, alternatives presented
+- **Task breakdown request** → Step-by-step breakdown + reasoning behind each step, so I can learn to do it myself
+
+The goal is always to understand *what* I'm doing and *why*.
 
 ## Build Commands
 
@@ -189,59 +253,8 @@ cmake --build . --config Release
 
 Raylib 5.5 is fetched automatically by CMake via FetchContent — no manual install needed.
 
-## Architecture
+## Reference Sources
 
-### Game Loop (`src/game.c`)
-- Fixed 60Hz physics/update timestep (`FIXED_TIMESTEP = 1/60`)
-- 30 FPS render target
-- Max delta time clamped to 0.25s
-- Order: input → actor updates → physics → render
-
-### Entity-Component System
-- **Actors** (`src/actor.c`): Pre-allocated pool of 512. Create with `ACTOR_Create()`, destroy with `ACTOR_Destroy()`.
-- **Components** (`src/component.c`): Attached to actors, updated by `updateOrder` priority. 128KB arena allocator.
-- Component types: `COMPONENT_TYPE_SCENE`, `MESH`, `MOVE`, `CAMERA`, `CAMERA_TPS`, `BOX`, `SPHERE`
-
-### Key Subsystems
-| File | Responsibility |
-|------|---------------|
-| `src/game.c` / `include/game.h` | Game loop, global timing constants |
-| `src/actor.c` / `include/actor.h` | Actor pool, lifecycle |
-| `src/component.c` / `include/component.h` | Component base, registration |
-| `src/scene_component.c` | Hierarchical transforms, dirty-flag propagation |
-| `src/renderer.c` | Frustum culling, distance-sorted draw list |
-| `src/physics_world.c` | Box/sphere colliders, raycasts, overlap queries |
-| `src/level_manager.c` | Level transitions (fade, wipe effects) |
-| `src/memory.c` / `include/memory.h` | Actor pool + 128KB component arena |
-| `src/debug.c` | On-screen HUD: memory, physics, render stats |
-| `CMakeLists.txt` | Build config, Raylib fetch, platform flags |
-
-## Coding Conventions
-
-**Functions**: `MODULE_FunctionName()` — module prefix in UPPER_SNAKE, name in PascalCase.
-```c
-ACTOR_Create(), PHYS_WORLD_Update(), LEVEL_MGR_RequestTransition()
-```
-
-**Types**:
-- Structs: `PascalCase` (`Actor`, `SceneComponent`, `PhysicsWorld`)
-- Enums/constants: `UPPER_SNAKE_CASE` (`ACTOR_STATE_ACTIVE`, `COMPONENT_TYPE_MESH`)
-- Function pointers: `PascalCaseFn` (`ActorUpdateFn`)
-
-**Variables**: `camelCase` for locals and struct fields.
-
-**Headers**: `#pragma once`. Use forward declarations for opaque pointers; minimize includes.
-
-**Logging**: Use `TraceLog(LOG_INFO/WARNING/ERROR, ...)` — never `printf`.
-
-**Assertions**: `assert()` for preconditions and invariants.
-
-**Memory**: No `malloc`/`free` at runtime. Use the actor pool and component arena. Static max sizes are defined as constants (e.g., `GAME_MAX_ACTORS 512`).
-
-**Error handling**: Return `bool` from init functions, log via `TraceLog`, clean up on failure.
-
-## Testing
-
-No automated test suite. Validate using:
-- Sandbox level (`src/level_sandbox.c`) for ad-hoc testing
-- Debug HUD (`src/debug.c`) for memory, physics, and render stats at runtime
+- **Madhav**: *Game Programming in C++* — Actor-Component pattern, PhysWorld, BoxComponent, Renderer mesh registry
+- **Knight**: C++/Raylib engine — RenderPass system, render queues (Background/Geometry/AlphaBlend/Overlay), frustum culling in BuildRenderQueue, scene graph with WorldBoundingBox
+- Decisions are documented comparing both approaches, with rationale for which we chose
