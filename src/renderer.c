@@ -124,8 +124,7 @@ static void RENDERER_BuildDrawList(Renderer* renderer)
         Actor* owner = mc->scene.base.owner;
         if (owner->state != ACTOR_STATE_ACTIVE) continue;
 
-        SCENE_COMPONENT_ComputeWorldTransform(&mc->scene);
-        BoundingBox worldBB = COLLISION_TransformAABB(mc->localBB, mc->scene.worldTransform);
+        BoundingBox worldBB = MESH_COMPONENT_GetWorldBB(mc);
 
         if (!RENDERER_IsAABBInFrustum(renderer->frustum, worldBB))
         {

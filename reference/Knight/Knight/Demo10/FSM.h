@@ -1,0 +1,53 @@
+#pragma once
+
+class SceneActor;
+class ModelComponent;
+class FSMState;
+
+class FSM
+{
+public:
+    typedef enum
+    {
+        UNKNOWN = 0,
+        DIE = 1,
+        IDLE = 2,
+        JUMP = 3,
+        IDLE1 = 4,
+        ATTACK = 5,
+        RUN = 6,
+        HIT = 7,
+        HIT2 = 8,
+        SHOOT = 9,
+        WALK = 10,
+        JUMP_OVER = 11,
+        WAVE = 12,
+        NODE = 13,
+        SORRY = 14
+    } ECharacterState;          //The enum of animation states
+public:
+    FSM(SceneActor* Character, ModelComponent* AnimController);
+    virtual ~FSM();
+    void SetState(ECharacterState NewState);
+    void Update(float DeltaTime);
+    ECharacterState GetPrevState() { return _PrevState; }
+    ECharacterState GetCurrentState() { return _CurrentState; }
+    SceneActor* GetCharacter() { return _Character; }
+    ModelComponent* GetAnimController() { return _AnimController; }
+protected:
+    FSMState* _States[15];      //Stores the 15 animation states
+    ECharacterState _PrevState = UNKNOWN;
+    ECharacterState _CurrentState = UNKNOWN;
+    SceneActor* _Character;     //The controlled character
+    ModelComponent* _AnimController;
+};
+
+class FSMState
+{
+public:
+    virtual void Enter(FSM* FiniteStateMachine) = 0;
+    //is called when entering this state
+    virtual void Update(FSM* FiniteStateMachine, float DeltaTime) = 0;
+    //is called every frame
+    virtual ~FSMState() = default;
+};
