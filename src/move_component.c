@@ -1,3 +1,8 @@
+/*******************************************************************************************
+*
+*   move_component.c — Move Component Implementation
+*
+********************************************************************************************/
 #include "move_component.h"
 #include "actor.h"
 #include "game.h"
@@ -6,9 +11,27 @@
 #include <stdlib.h>
 #include <assert.h>
 
+/* Threshold below which a speed is considered zero (avoids floating-point noise) */
 #define NEAR_ZERO 0.001f
 
-static void MoveUpdate(Component* self, float deltaTime) 
+/*------------------------------------------------------------------------------------
+ * MoveUpdate (static)
+ * 
+ *   Per-tick movement update. Applied at fixed timestep (typically 60Hz).
+ * 
+ *   Two phases:
+ *   1. Angular rotation: add angularSpeed × dt to the actor's Y rotation (yaw).
+ *      This rotates the actor around its up axis.
+ * 
+ *   2. Linear movement: move along the actor's forward and right vectors.
+ *      newPos = pos + forward × forwardSpeed × dt + right × strafeSpeed × dt
+ * 
+ *   Both phases use a NEAR_ZERO threshold to skip computation when speeds are
+ *   effectively zero, avoiding unnecessary transform dirtying.
+ * 
+ *   Update order 10 ensures movement runs early, before mesh/collider updates.
+ *------------------------------------------------------------------------------------*/
+static void MOVE_COMPONENT_Update(Component* self, float deltaTime) 
 {
 	assert(self != NULL);
     if(self->type != COMPONENT_TYPE_MOVE) 
@@ -19,6 +42,7 @@ static void MoveUpdate(Component* self, float deltaTime)
     MoveComponent* mc = (MoveComponent*)self;
     Actor* owner = self->owner;
 
+    /* ── Phase 1: Angular rotation (yaw) ── */
     if (fabsf(mc->angularSpeed) > NEAR_ZERO) 
     {
         float angle = mc->angularSpeed * deltaTime;
@@ -27,6 +51,7 @@ static void MoveUpdate(Component* self, float deltaTime)
         ACTOR_SetRotation(owner, rot);
     }
 
+    /* ── Phase 2: Linear movement (forward + strafe) ── */
     if (fabsf(mc->forwardSpeed) > NEAR_ZERO ||
         fabsf(mc->strafeSpeed) > NEAR_ZERO) 
     {
@@ -41,6 +66,12 @@ static void MoveUpdate(Component* self, float deltaTime)
     }
 }
 
+/*------------------------------------------------------------------------------------
+ * MOVE_COMPONENT_Create
+ * 
+ *   Factory function — allocates from the component pool, initializes with
+ *   update order 10 (runs early), and sets all speeds to 0.
+ *------------------------------------------------------------------------------------*/
 MoveComponent* MOVE_COMPONENT_Create(Actor* owner)
 {
 	assert(owner != NULL);
@@ -48,7 +79,7 @@ MoveComponent* MOVE_COMPONENT_Create(Actor* owner)
     if (!mc) return NULL;
 
     COMPONENT_Init(&mc->base, owner, COMPONENT_TYPE_MOVE, 10);
-    mc->base.Update = MoveUpdate;
+    mc->base.Update = MOVE_COMPONENT_Update;
 
     mc->angularSpeed = 0.0f;
     mc->forwardSpeed = 0.0f;
@@ -57,6 +88,7 @@ MoveComponent* MOVE_COMPONENT_Create(Actor* owner)
     return mc;
 }
 
+/* Set all speed values. Positive forward = move along -Z, positive angular = turn left. */
 void MOVE_COMPONENT_SetSpeeds(MoveComponent* mc, float forward, float angular, float strafe)
 {
     assert(mc != NULL);
