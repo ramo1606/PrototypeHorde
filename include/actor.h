@@ -48,48 +48,53 @@ typedef enum
 
 typedef enum
 {
-    ACTOR_TYPE_NONE = 0,
-    ACTOR_TYPE_TPS,
-    ACTOR_TYPE_ENEMY,           /* Phase 11 */
-    ACTOR_TYPE_PROJECTILE,      /* Future */
-    NUM_ACTOR_TYPES
+    ACTOR_TYPE_NONE = 0,            /* Generic / untyped actor                       */
+    ACTOR_TYPE_TPS,                 /* Third-person player character                 */
+    ACTOR_TYPE_ENEMY,               /* Phase 11: Enemy AI actor                      */
+    ACTOR_TYPE_PROJECTILE,          /* Future: Bullet / projectile                   */
+    NUM_ACTOR_TYPES                 /* Sentinel — total count of actor types         */
 } ActorType;
 
+/* ── Virtual Function Pointers ───────────────────────────────────────────── */
 typedef void (*ActorUpdateFn)(Actor* self, float deltaTime);
 typedef void (*ActorInputFn)(Actor* self);
 typedef void (*ActorDestroyFn)(Actor* self);
 
 struct Actor 
 {
-    SceneComponent root;
+    SceneComponent root;            /* Embedded root transform — NOT a pointer        */
 
-    ActorState state;
-    ActorType type;
-    unsigned int tags;
+    ActorState state;               /* Current lifecycle state                        */
+    ActorType  type;                /* Runtime type for gameplay queries              */
+    unsigned int tags;              /* Bitmask for tagging (e.g. TAG_PLAYER = 0x01)   */
 
-    Game* game;
+    Game* game;                     /* Back-reference to the owning Game instance     */
 
-    ActorUpdateFn Update;
-    ActorInputFn Input;
-    ActorDestroyFn Destroy;
+    ActorUpdateFn  Update;          /* Custom per-tick logic (NULL = none)            */
+    ActorInputFn   Input;           /* Custom input handler (NULL = none)             */
+    ActorDestroyFn Destroy;         /* Custom cleanup (NULL = none)                   */
 
-    Component* components[ACTOR_MAX_COMPONENTS];
-    int componentCount;
+    Component* components[ACTOR_MAX_COMPONENTS]; /* Sorted by updateOrder             */
+    int        componentCount;      /* Current number of attached components          */
 };
 
+/* ── Lifecycle ───────────────────────────────────────────────────────────── */
 Actor* ACTOR_Create(Game* game);
 void ACTOR_Destroy(Actor* actor);
 
+/* ── Update Loop ─────────────────────────────────────────────────────────── */
 void ACTOR_Update(Actor* actor, float deltaTime);
 void ACTOR_UpdateComponents(Actor* actor, float deltaTime);
 void ACTOR_ProcessInput(Actor* actor);
 void ACTOR_ComputeWorldTransform(Actor* actor);
 
+/* ── Transform Getters ───────────────────────────────────────────────────── */
 Vector3 ACTOR_GetForward(Actor* actor);
 Vector3 ACTOR_GetRight(Actor* actor);
 Vector3 ACTOR_GetUp(Actor* actor);
 Vector3 ACTOR_GetWorldPosition(Actor* actor);
 
+/* ── Transform Setters ───────────────────────────────────────────────────── */
 void ACTOR_SetPosition(Actor* actor, Vector3 pos);
 void ACTOR_SetRotation(Actor* actor, Vector3 euler);
 void ACTOR_SetScale(Actor* actor, float scale);
@@ -97,10 +102,12 @@ void ACTOR_SetScale(Actor* actor, float scale);
 // TODO: should be moved to CharacterMovementComponent?
 void ACTOR_RotateToNewForward(Actor* actor, Vector3 forward);
 
+/* ── Component Management ────────────────────────────────────────────────── */
 void ACTOR_AddComponent(Actor* actor, Component* comp);
 void ACTOR_RemoveComponent(Actor* actor, Component* comp);
 Component *ACTOR_GetComponentOfType(Actor* actor, ComponentType type);
 int ACTOR_GetComponentsOfType(Actor* actor, ComponentType type,
                                Component** outArray, int maxResults);
 
+/* ── Tag Queries ─────────────────────────────────────────────────────────── */
 bool ACTOR_HasTag(Actor* actor, unsigned int tag);

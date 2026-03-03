@@ -26,7 +26,6 @@ typedef struct Actor Actor;
 typedef struct Component Component;
 
 /* ── Component Type Registry ─────────────────────────────────────────────── */
-
 typedef enum
 {
     COMPONENT_TYPE_NONE = 0,            /* Uninitialized / invalid                        */
@@ -46,13 +45,11 @@ typedef enum
 } ComponentType;
 
 /* ── Virtual Function Pointers ───────────────────────────────────────────── */
-
 typedef void (*ComponentUpdateFn)(Component* self, float deltaTime);
 typedef void (*ComponentInputFn)(Component* self);
 typedef void (*ComponentDestroyFn)(Component* self);
 
 /* ── Component Base Struct ───────────────────────────────────────────────── */
-
 struct Component
 {
     Actor* owner;                   /* Actor that owns this component (never NULL after Init) */
@@ -65,7 +62,6 @@ struct Component
 };
 
 /* ── Public API ──────────────────────────────────────────────────────────── */
-
 void COMPONENT_Init(Component* comp, Actor* owner, ComponentType type, int updateOrder);
 void COMPONENT_Destroy(Component* comp);
 

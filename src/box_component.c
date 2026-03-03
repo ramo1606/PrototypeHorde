@@ -58,7 +58,6 @@ static void BoxComponentDestroy(Component* self)
  *   Update order 300 ensures the box updates after the actor's position has been
  *   set by MoveComponent (order 10) and after the mesh (order 200).
  *------------------------------------------------------------------------------------*/
-
 BoxComponent* BOX_COMPONENT_Create(Actor* owner)
 {
     assert(owner != NULL);

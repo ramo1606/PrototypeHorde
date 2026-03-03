@@ -45,7 +45,6 @@ static const char* ComponentTypeNames[NUM_COMPONENT_TYPES] =
  *       250 = CameraComponent (camera follows movement)
  *       300 = BoxComponent / SphereComponent (colliders after transforms settle)
  *------------------------------------------------------------------------------------*/
-
 void COMPONENT_Init(Component* comp, Actor* owner, ComponentType type, int updateOrder) 
 {
 	assert(comp != NULL);
@@ -74,7 +73,6 @@ void COMPONENT_Init(Component* comp, Actor* owner, ComponentType type, int updat
  *   The order matters: the Destroy callback may need the owner reference,
  *   so we unregister from the Actor only after the callback completes.
  *------------------------------------------------------------------------------------*/
-
 void COMPONENT_Destroy(Component* comp) 
 {
 	assert(comp != NULL);
@@ -98,7 +96,6 @@ void COMPONENT_Destroy(Component* comp)
  *   Simple lookup into the static name table. Returns "Unknown" for out-of-range values.
  *   Useful for debug logging and editor tooling.
  *------------------------------------------------------------------------------------*/
-
 const char* COMPONENT_GetTypeName(ComponentType type)
 {
     if (type >= 0 && type < NUM_COMPONENT_TYPES)
