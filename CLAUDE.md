@@ -258,3 +258,6 @@ Raylib 5.5 is fetched automatically by CMake via FetchContent — no manual inst
 - **Madhav**: *Game Programming in C++* — Actor-Component pattern, PhysWorld, BoxComponent, Renderer mesh registry
 - **Knight**: C++/Raylib engine — RenderPass system, render queues (Background/Geometry/AlphaBlend/Overlay), frustum culling in BuildRenderQueue, scene graph with WorldBoundingBox
 - Decisions are documented comparing both approaches, with rationale for which we chose
+- Reference projects and books are in reference subfolder
+- \reference\GameProgrammingC++
+- \reference\Knight
