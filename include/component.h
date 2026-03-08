@@ -32,6 +32,7 @@ typedef enum
     COMPONENT_TYPE_SCENE,               /* SceneComponent — transform node                */
     COMPONENT_TYPE_MESH,                /* MeshComponent — renderable mesh                */
     COMPONENT_TYPE_MOVE,                /* MoveComponent — basic angular/linear movement  */
+    COMPONENT_TYPE_PLAYER_MOVEMENT,     /* PlayerMovementComponent — player-controlled movement */
     COMPONENT_TYPE_CAMERA,              /* CameraComponent — base camera                  */
     COMPONENT_TYPE_CAMERA_TPS,          /* CameraTPS — third-person spring camera         */
     COMPONENT_TYPE_BOX,                 /* BoxComponent — AABB collider                   */

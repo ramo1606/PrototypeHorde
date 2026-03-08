@@ -21,7 +21,7 @@
 #include <stdlib.h>
 
 /* ── Level declarations (defined in their respective level_N.c files) ────── */
-extern Level LEVEL_1;
+extern Level LEVEL_SANDBOX;
 
 /*------------------------------------------------------------------------------------
  * main
@@ -40,7 +40,7 @@ int main(void)
         return -1;
     }
     
-    if (!GAME_Init(game, &LEVEL_1)) 
+    if (!GAME_Init(game, &LEVEL_SANDBOX)) 
     {
         free(game);
         return -1;

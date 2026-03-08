@@ -19,6 +19,7 @@ static const char* ComponentTypeNames[NUM_COMPONENT_TYPES] =
     "Scene",
     "Mesh",
     "Move",
+    "PlayerMovement",
     "Camera",
     "CameraTPS",
     "Box",
