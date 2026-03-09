@@ -169,7 +169,7 @@ static void PlayerMovementUpdate(Component* self, float deltaTime)
     ACTOR_SetPosition(owner, pos);
 
     /* ── Step 4: Rotate to face movement direction ── */
-    pm->targetYaw = atan2f(moveDir.x, -moveDir.z);
+    pm->targetYaw = atan2f(-moveDir.x, -moveDir.z);
     ApplyShortestArcRotation(owner, pm->targetYaw, pm->turnSpeed, deltaTime);
 }
 
