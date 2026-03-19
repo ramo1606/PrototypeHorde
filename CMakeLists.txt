@@ -8,25 +8,16 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 # Define source and header files
 file(GLOB SOURCES
     src/*.c
-    #src/core/*.c
-    #src/game/*.c
-    #src/renderer/*.c
-    #src/systems/*.c
-    #src/tools/*.c
 )
 
 file(GLOB HEADERS
     include/*.h
-    include/core/*.h
-    include/core/rini/*.h
-    include/core/rmem/*.h
-    include/core/rres/*.h
-    include/core/rres/externals/*.h
-    #include/game/*.h
+    include/externals/*.h
+    include/externals/rini/*.h
+    include/externals/rmem/*.h
+    include/externals/rres/*.h
+    include/externals/rres/externals/*.h
     include/raygui/*.h
-    #include/renderer/*.h
-    #include/systems/*.h
-    #include/tools/*.h
 )
 
 # Options for build configuration
@@ -87,15 +78,20 @@ FetchContent_MakeAvailable(raylib)
 
 # Add include directories
 include_directories(include)
-include_directories(include/core)
-include_directories(include/core/rini)
-include_directories(include/core/rmem)
-include_directories(include/core/rres)
-include_directories(include/core/rres/externals)
+include_directories(include/externals)
+include_directories(include/externals/rini)
+include_directories(include/externals/rmem)
+include_directories(include/externals/rres)
+include_directories(include/externals/rres/externals)
 include_directories(include/raygui)
 
 # Create the executable with all source files
 add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
+
+# Debug builds get the debug overlay and asserts
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+    $<$<CONFIG:Debug>:DEBUG_ENABLED>
+)
 
 if(BUILD_FOR_RG35XX)
     # RG35XX Plus specific configuration
