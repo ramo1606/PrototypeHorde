@@ -1,36 +1,67 @@
-#pragma once
+﻿#pragma once
 
+#include "config.h"
 #include <stdbool.h>
+#include <stddef.h>
 
 typedef struct Game Game;
-typedef struct DebugTool DebugTool;
 
-struct DebugTool
-{
-    const char* name;
-    int key;
-    bool enabled;
+#ifdef DEBUG_ENABLED
 
-    void (*Update)(Game* game);
-    void (*RenderOverlay)(Game* game, int* y);  /* 2D panel drawing */
-    void (*Render3D)(Game* game);               /* 3D gizmo drawing */
-};
+#define DEBUG_MAX_PANELS 6
 
+/* Callback types for panel registration */
+typedef void (*DebugPanelDrawFn)(float x, float y, float w, float h);
+typedef void (*DebugRender3DFn)(Game* game);
+
+/* ── Lifecycle ───────────────────────────────────────────────────────────── */
 
 void DEBUG_Init(void);
 void DEBUG_Shutdown(void);
 
-void DEBUG_RegisterTool(DebugTool tool);
-void DEBUG_UnregisterTool(const char* name);
+/* ── Panel Registration ──────────────────────────────────────────────────── */
+
+/* Register a 2D overlay panel. slot 0..5 maps to F2..F7. */
+void DEBUG_RegisterPanel(int slot, const char* name, DebugPanelDrawFn draw_fn);
+
+/* Register a 3D gizmo renderer. slot 0..5 maps to F2..F7 (shared toggle). */
+void DEBUG_Register3D(int slot, DebugRender3DFn render_fn);
+
+/* ── Update & Render ─────────────────────────────────────────────────────── */
 
 void DEBUG_Update(Game* game);
-void DEBUG_Render(Game* game);
-void DEBUG_Render3D(Game* game);
+void DEBUG_Render3D(Game* game);    /* Call inside BeginMode3D */
+void DEBUG_Render(Game* game);      /* Call after EndMode3D */
 
-bool DEBUG_IsMasterVisible(void);
-void DEBUG_SetMasterVisible(bool visible);
-bool DEBUG_IsToolEnabled(const char* name);
-void DEBUG_SetToolEnabled(const char* name, bool enabled);
+/* ── Perf Stats Feed ─────────────────────────────────────────────────────── */
 
-int DEBUG_GetToolCount(void);
-DebugTool* DEBUG_GetToolByIndex(int index);
+typedef struct DebugPerfStats 
+{
+    float  frametimeMs, frametimeAvg, frametimeMin, frametimeMax;
+    int    fps;
+    int    ticksThisFrame;
+    float  alpha;
+    size_t arenaPermanentTotal, arenaPermanentFree;
+    size_t arenaLevelTotal, arenaLevelFree;
+    size_t arenaScratchTotal, arenaScratchFree;
+} DebugPerfStats;
+
+void DEBUG_SetPerfStats(const DebugPerfStats* stats);
+
+/* ── Queries ─────────────────────────────────────────────────────────────── */
+
+bool DEBUG_IsVisible(void);
+
+#else /* release: zero-cost no-ops */
+
+#define DEBUG_Init()
+#define DEBUG_Shutdown()
+#define DEBUG_RegisterPanel(slot, name, fn)
+#define DEBUG_Register3D(slot, fn)
+#define DEBUG_Update(game)
+#define DEBUG_Render3D(game)
+#define DEBUG_Render(game)
+#define DEBUG_SetPerfStats(stats)
+#define DEBUG_IsVisible() false
+
+#endif /* DEBUG_ENABLED */
