@@ -112,26 +112,31 @@ static void Update(Game* game, float dt)
 
 static void Render3D(Game* game, float alpha)
 {
-    /*
-     * Instead of calling BeginMode3D/DrawCube/EndMode3D manually,
-     * we let the renderer handle the entire 3D pipeline.
-     * It interpolates transforms, culls, sorts, and draws.
-     */
-    RENDERER_DrawFrame(&game->renderer, alpha);
+    (void)game;
+    (void)alpha;
 
-    /* 2D HUD (drawn after the renderer's EndMode3D) */
+    /* Grid for reference (will be replaced by arena floor) */
+    DrawGrid(20, 1.0f);
+}
+
+static void RenderHUD(Game* game, float alpha)
+{
+    (void)alpha;
+
     DrawText("LEVEL A — Renderer pipeline", 10, SCREEN_HEIGHT - 80, 20, RAYWHITE);
     DrawText(TextFormat("Drawn: %d  Culled: %d",
         game->renderer.statsDrawn, game->renderer.statsCulled),
         10, SCREEN_HEIGHT - 55, 16, GREEN);
-    DrawText("Press SPACE -> Level B (manual draw)", 10, SCREEN_HEIGHT - 30, 16, LIGHTGRAY);
+    DrawText("Press SPACE -> Level B", 10, SCREEN_HEIGHT - 30, 16, LIGHTGRAY);
 }
 
-Level LEVEL_TEST_A = {
+Level LEVEL_TEST_A = 
+{
     .name = "Test A (renderer)",
     .Init = Init,
     .Shutdown = Shutdown,
     .ProcessInput = ProcessInput,
     .Update = Update,
     .Render3D = Render3D,
+    .RenderHUD = RenderHUD,
 };

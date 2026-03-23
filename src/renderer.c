@@ -152,7 +152,7 @@ static Matrix LerpMatrix(Matrix a, Matrix b, float t)
     float* rb = (float*)&b;
     float* rr = (float*)&result;
 
-    for (int i = 0; i < 16; i++) 
+    for (int i = 0; i < 16; i++)
     {
         rr[i] = ra[i] + (rb[i] - ra[i]) * t;
     }
@@ -160,14 +160,18 @@ static Matrix LerpMatrix(Matrix a, Matrix b, float t)
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
- *  Frame Drawing
+ *  Frame Drawing — Phase 1: Build Draw List
  *
- *  Task 1.1: Draw all active renderables (no culling, no sorting).
- *  Task 1.2: Add interpolation with alpha.
- *  Task 1.3: Add frustum culling before drawing.
- *  Task 1.4: Add material sorting of draw list.
+ *  Iterates all active renderables, interpolates their transforms,
+ *  applies frustum culling (Task 1.3), and builds the sorted draw list.
+ *
+ *  Call ONCE per frame, BEFORE BeginMode3D. The interpolated transforms
+ *  are cached in the DrawEntry so Draw3D doesn't recompute them.
+ *
+ *  Task 1.3: Add frustum culling before adding to draw list.
+ *  Task 1.4: Add material sorting of draw list after building it.
  * ═══════════════════════════════════════════════════════════════════════════ */
-void RENDERER_DrawFrame(Renderer* renderer, float alpha)
+void RENDERER_BuildDrawList(Renderer* renderer, float alpha)
 {
     assert(renderer);
 
@@ -175,44 +179,52 @@ void RENDERER_DrawFrame(Renderer* renderer, float alpha)
     renderer->statsCulled = 0;
     renderer->drawCount = 0;
 
-    /* ── Step 1: Build draw list (Task 1.3 will add frustum culling here) ── */
-    for (int i = 0; i < MAX_RENDERABLES; i++) 
+    for (int i = 0; i < MAX_RENDERABLES; i++)
     {
         if (!renderer->renderables[i].active) continue;
 
-        /* TODO Task 1.3: frustum cull check here.
-         * For now, everything passes. */
-
-        renderer->drawList[renderer->drawCount].index = i;
-        renderer->drawList[renderer->drawCount].distSq = 0.0f; /* TODO: compute */
-        renderer->drawCount++;
-    }
-
-    /* TODO Task 1.4: sort drawList by materialID here. */
-
-    /* ── Step 2: Draw ────────────────────────────────────────────────────── */
-    ClearBackground(renderer->clearColor);
-    BeginMode3D(renderer->camera);
-
-    for (int d = 0; d < renderer->drawCount; d++) 
-    {
-        int idx = renderer->drawList[d].index;
-        Renderable* r = &renderer->renderables[idx];
+        Renderable* r = &renderer->renderables[i];
 
         /* Interpolate transform between prev and curr */
         Matrix interp = LerpMatrix(r->transformPrev, r->transformCurr, alpha);
 
-        /* Apply interpolated transform to model and draw */
-        r->model.transform = interp;
+        /* TODO Task 1.3: frustum cull check using interpolated position.
+         * Transform boundingCenter by interp, test against frustum planes.
+         * For now, everything passes. */
+
+         /* Add to draw list with cached interpolated transform */
+        DrawEntry* entry = &renderer->drawList[renderer->drawCount];
+        entry->index = i;
+        entry->distSq = 0.0f; /* TODO Task 1.4: compute distance to camera */
+        entry->transform = interp;
+        renderer->drawCount++;
+    }
+
+    /* TODO Task 1.4: sort drawList by materialID here. */
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  Frame Drawing — Phase 2: Draw 3D
+ *
+ *  Submits draw calls for everything in the draw list.
+ *  MUST be called INSIDE an active BeginMode3D/EndMode3D block —
+ *  the renderer does NOT manage the 3D context.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+void RENDERER_Draw3D(Renderer* renderer)
+{
+    assert(renderer);
+
+    for (int d = 0; d < renderer->drawCount; d++)
+    {
+        DrawEntry* entry = &renderer->drawList[d];
+        Renderable* r = &renderer->renderables[entry->index];
+
+        /* Apply the pre-computed interpolated transform */
+        r->model.transform = entry->transform;
         DrawModel(r->model, (Vector3) { 0, 0, 0 }, 1.0f, WHITE);
 
         renderer->statsDrawn++;
     }
-
-    /* Grid for reference (will be replaced by arena floor) */
-    DrawGrid(20, 1.0f);
-
-    EndMode3D();
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

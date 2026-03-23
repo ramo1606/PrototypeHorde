@@ -59,7 +59,8 @@ struct FrustumPlane
 struct DrawEntry 
 {
     int index;                  /* Index into renderables[]                 */
-    float distSq;                /* Squared distance to camera (for sorting) */
+    float distSq;               /* Squared distance to camera (for sorting) */
+    Matrix transform;           /* Interpolated world transform (cached)    */
 };
 
 /* ── Renderer Struct ─────────────────────────────────────────────────────── */
@@ -101,9 +102,11 @@ void RENDERER_Unregister(Renderer* renderer, RenderHandle handle);
 void RENDERER_SetTransform(Renderer* renderer, RenderHandle handle, Matrix transform);
 void RENDERER_PreUpdate(Renderer* renderer);
 
-/* ── Frame Drawing ───────────────────────────────────────────────────────── */
+/* ── Frame Drawing (split pipeline) ──────────────────────────────────────── */
 
-void RENDERER_DrawFrame(Renderer* renderer, float alpha);
+void RENDERER_BuildDrawList(Renderer* renderer, float alpha);
+void RENDERER_Draw3D(Renderer* renderer);
+
 
 /* ── Camera Control ──────────────────────────────────────────────────────── */
 

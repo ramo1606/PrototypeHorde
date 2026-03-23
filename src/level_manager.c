@@ -264,16 +264,22 @@ void LEVEL_MGR_UpdateLevel(LevelManager* mgr, Game* game, float dt)
     }
 }
 
-void LEVEL_MGR_RenderLevel(LevelManager* mgr, Game* game, float alpha)
+void LEVEL_MGR_Render3D(LevelManager* mgr, Game* game, float alpha)
 {
-	assert(mgr && game);
+    assert(mgr && game);
+
     if (mgr->activeLevel && mgr->activeLevel->Render3D)
     {
         mgr->activeLevel->Render3D(game, alpha);
     }
+}
+
+void LEVEL_MGR_RenderHUD(LevelManager* mgr, Game* game, float alpha)
+{
+    assert(mgr && game);
 
     if (mgr->activeLevel && mgr->activeLevel->RenderHUD)
     {
         mgr->activeLevel->RenderHUD(game, alpha);
-	}
+    }
 }
