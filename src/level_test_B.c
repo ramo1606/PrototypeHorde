@@ -65,26 +65,29 @@ static void Render3D(Game* game, float alpha)
     (void)game;
     float a = data->anglePrev + (data->angle - data->anglePrev) * alpha;
 
-    ClearBackground((Color) { 80, 25, 25, 255 });
-
-    BeginMode3D(data->camera);
     DrawSphere((Vector3) { 0, 1, 0 }, 0.8f, RED);
     DrawSphereWires((Vector3) { 0, 1, 0 }, 0.8f, 8, 8, MAROON);
     DrawGrid(10, 1.0f);
 
     float rad = a * DEG2RAD;
     DrawCube((Vector3) { cosf(rad) * 3, 0.3f, sinf(rad) * 3 }, 0.4f, 0.4f, 0.4f, ORANGE);
-    EndMode3D();
+}
+
+static void RenderHUD(Game* game, float alpha)
+{
+    (void)alpha;
 
     DrawText("LEVEL B (red)", 10, SCREEN_HEIGHT - 60, 20, RAYWHITE);
     DrawText("Press SPACE -> Level A (wipe transition)", 10, SCREEN_HEIGHT - 35, 16, LIGHTGRAY);
 }
 
-Level LEVEL_TEST_B = {
+Level LEVEL_TEST_B = 
+{
     .name = "Test B",
     .Init = Init,
     .Shutdown = Shutdown,
     .ProcessInput = ProcessInput,
     .Update = Update,
     .Render3D = Render3D,
+    .RenderHUD = RenderHUD,
 };

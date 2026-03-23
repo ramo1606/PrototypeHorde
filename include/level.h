@@ -7,7 +7,7 @@ typedef void (*LevelShutdownFn)(Game* game);
 typedef void (*LevelInputFn)(Game* game);
 typedef void (*LevelUpdateFn)(Game* game, float dt);
 typedef void (*LevelRender3DFn)(Game* game, float alpha);
-typedef int  (*LevelRenderHUDFn)(Game* game, int y);
+typedef void (*LevelRenderHUDFn)(Game* game, float alpha);
 
 typedef struct Level 
 {

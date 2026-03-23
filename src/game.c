@@ -174,12 +174,41 @@ void GAME_Run(Game* game)
         ARENA_Reset(&game->scratch);
 
         /* --- Render --------------------------------------------------- */
+        /*
+         * The game loop is the "director" of the render sequence.
+         * Each subsystem contributes its content, but the game loop
+         * controls the order and the BeginMode3D/EndMode3D boundaries.
+         *
+         *   1. ClearBackground        — scene background
+         *   2. BuildDrawList           — prepare renderer (culling, sorting)
+         *   3. BeginMode3D             — enter 3D context
+         *      a. RENDERER_Draw3D      — registered renderables
+         *      b. Level->Render3D      — level-specific 3D (grid, decor)
+         *      c. DEBUG_Render3D       — 3D gizmos (collider wireframes, etc.)
+         *   4. EndMode3D               — exit 3D context
+         *   5. Level->RenderHUD        — level 2D overlay (health, ammo, etc.)
+         *   6. DEBUG panels            — debug 2D overlay
+         *   7. Transition overlay      — drawn last, covers everything
+         */
         BeginDrawing();
 
-        /* Level renders its 3D scene and HUD */
-        LEVEL_MGR_RenderLevel(&game->levelMgr, game, game->alpha);
+        ClearBackground(game->renderer.clearColor);
 
-        /* Debug overlay */
+        /* Prepare draw list (interpolation, culling, sorting) */
+        RENDERER_BuildDrawList(&game->renderer, game->alpha);
+
+        /* ── 3D phase ── */
+        BeginMode3D(game->renderer.camera);
+
+            RENDERER_Draw3D(&game->renderer);
+            LEVEL_MGR_Render3D(&game->levelMgr, game, game->alpha);
+            DEBUG_Render3D(game);
+
+        EndMode3D();
+
+        /* ── 2D phase ── */
+        LEVEL_MGR_RenderHUD(&game->levelMgr, game, game->alpha);
+
         DEBUG_Update(game);
         FeedDebugStats(game);
         DEBUG_Render(game);
