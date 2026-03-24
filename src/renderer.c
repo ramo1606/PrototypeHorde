@@ -3,6 +3,7 @@
 #include "raymath.h"
 
 #include <assert.h>
+#include <stdlib.h>
 #include <string.h>
 #include <math.h>
 
@@ -160,6 +161,34 @@ static Matrix LerpMatrix(Matrix a, Matrix b, float t)
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+ *  Draw List Sort Comparator (Task 1.4)
+ *
+ *  Primary key:   materialID (ascending) — groups draw calls by material
+ *                 to minimize GPU state changes (shader/texture swaps).
+ *  Secondary key: distSq (ascending, front-to-back) — within the same
+ *                 material, closer objects draw first so the GPU's early-Z
+ *                 can reject occluded fragments without running the
+ *                 fragment shader.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+static int CompareDrawEntries(const void* a, const void* b)
+{
+    const DrawEntry* ea = (const DrawEntry*)a;
+    const DrawEntry* eb = (const DrawEntry*)b;
+
+    /* Primary: group by material */
+    if (ea->materialID != eb->materialID) 
+    {
+        return (ea->materialID > eb->materialID) - (ea->materialID < eb->materialID);
+    }
+
+    /* Secondary: front-to-back within same material */
+    if (ea->distSq < eb->distSq) return -1;
+    if (ea->distSq > eb->distSq) return  1;
+    return 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
  *  Frame Drawing — Phase 1: Build Draw List
  *
  *  Iterates all active renderables, interpolates their transforms,
@@ -247,7 +276,12 @@ void RENDERER_BuildDrawList(Renderer* renderer, float alpha)
         renderer->drawCount++;
     }
 
-    /* TODO Task 1.4: sort drawList by materialID here. */
+    /* Sort: group by material, then front-to-back within each group */
+    if (renderer->drawCount > 1)
+    {
+        qsort(renderer->drawList, (size_t)renderer->drawCount,
+            sizeof(DrawEntry), CompareDrawEntries);
+    }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

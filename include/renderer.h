@@ -59,6 +59,7 @@ struct FrustumPlane
 struct DrawEntry 
 {
     int index;                  /* Index into renderables[]                 */
+    int materialID;             /* Copied from renderable (sort key)        */
     float distSq;               /* Squared distance to camera (for sorting) */
     Matrix transform;           /* Interpolated world transform (cached)    */
 };
