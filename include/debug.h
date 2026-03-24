@@ -37,13 +37,22 @@ void DEBUG_Render(Game* game);      /* Call after EndMode3D */
 
 typedef struct DebugPerfStats 
 {
-    float  frametimeMs, frametimeAvg, frametimeMin, frametimeMax;
-    int    fps;
-    int    ticksThisFrame;
-    float  alpha;
+    /* Timing (Panel F2) */
+    float frametimeMs, frametimeAvg, frametimeMin, frametimeMax;
+    int fps;
+    int ticksThisFrame;
+    float alpha;
+
+    /* Memory (Panel F2) */
     size_t arenaPermanentTotal, arenaPermanentFree;
     size_t arenaLevelTotal, arenaLevelFree;
     size_t arenaScratchTotal, arenaScratchFree;
+
+    /* Renderer (Panel F3) */
+    int renderableCount;     /* Active slots in the renderable pool   */
+    int drawCount;           /* Entries in draw list (passed culling)  */
+    int statsDrawn;          /* Actually submitted to GPU this frame   */
+    int statsCulled;         /* Rejected by frustum culling            */
 } DebugPerfStats;
 
 void DEBUG_SetPerfStats(const DebugPerfStats* stats);

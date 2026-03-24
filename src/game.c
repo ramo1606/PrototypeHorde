@@ -50,6 +50,10 @@ static void FeedDebugStats(Game* game)
         .arenaLevelFree = ARENA_GetFreeMemory(game->level),
         .arenaScratchTotal = game->scratch.arena.size,
         .arenaScratchFree = ARENA_GetFreeMemory(game->scratch),
+        .renderableCount = game->renderer.renderableCount,
+        .drawCount = game->renderer.drawCount,
+        .statsDrawn = game->renderer.statsDrawn,
+        .statsCulled = game->renderer.statsCulled,
     };
     DEBUG_SetPerfStats(&stats);
 }

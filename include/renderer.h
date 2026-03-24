@@ -116,7 +116,7 @@ void RENDERER_SetClearColor(Renderer* renderer, Color color);
 
 /* ── Frustum Culling ────────── */
 
-void RENDERER_ExtractFrustumPlanes(FrustumPlane planes[6], Matrix viewProj);
+void RENDERER_ExtractFrustumPlanes(FrustumPlane planes[6], Matrix m);
 bool RENDERER_IsSphereInFrustum(const FrustumPlane planes[6], Vector3 center, float radius);
 
 /* ── Bounding Sphere Helpers ─────────────────────────────────────────────── */
