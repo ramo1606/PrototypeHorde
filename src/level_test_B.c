@@ -58,6 +58,15 @@ static void Update(Game* game, float dt)
         data->angle -= 360.0f;
         data->anglePrev -= 360.0f;
     }
+
+    /*
+     * Free camera for testing — WASD + mouse.
+     * This is a temporary debug aid, NOT the final camera system (Task 1.6).
+     * UpdateCamera reads mouse/keyboard input and moves the camera.
+     */
+    Camera3D cam = RENDERER_GetCamera(&game->renderer);
+    UpdateCamera(&cam, CAMERA_FREE);
+    RENDERER_SetCamera(&game->renderer, cam);
 }
 
 static void Render3D(Game* game, float alpha)

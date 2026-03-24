@@ -108,6 +108,15 @@ static void Update(Game* game, float dt)
     float rad = data->rotation * DEG2RAD;
     RENDERER_SetTransform(&game->renderer, data->markerHandle,
         MatrixTranslate(cosf(rad) * 2.0f, 0.5f, sinf(rad) * 2.0f));
+
+    /*
+     * Free camera for testing — WASD + mouse.
+     * This is a temporary debug aid, NOT the final camera system (Task 1.6).
+     * UpdateCamera reads mouse/keyboard input and moves the camera.
+     */
+    Camera3D cam = RENDERER_GetCamera(&game->renderer);
+    UpdateCamera(&cam, CAMERA_FREE);
+    RENDERER_SetCamera(&game->renderer, cam);
 }
 
 static void Render3D(Game* game, float alpha)

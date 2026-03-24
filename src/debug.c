@@ -133,6 +133,49 @@ static void DrawPerfPanel(float x, float y, float w, float h)
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+ *  Built-in: Renderer Panel (F3)
+ *
+ *  Shows renderer pipeline stats: registered renderables, draw list size,
+ *  objects drawn vs culled by frustum culling, and a visual bar showing
+ *  the culling ratio.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+static void DrawRendererPanel(float x, float y, float w, float h)
+{
+    GuiGroupBox((Rectangle) { x, y, w, h }, "Renderer (F3)");
+
+    float row = y + 20;
+    float pad = 10;
+
+    /* Renderable pool usage */
+    GuiLabel((Rectangle) { x + pad, row, w - 2 * pad, 18 },
+        TextFormat("Renderables: %d / %d", perf.renderableCount, MAX_RENDERABLES));
+    row += 22;
+
+    /* Draw list (what passed culling) */
+    GuiLabel((Rectangle) { x + pad, row, w - 2 * pad, 18 },
+        TextFormat("Draw list: %d", perf.drawCount));
+    row += 22;
+
+    /* Drawn vs Culled */
+    GuiLabel((Rectangle) { x + pad, row, w - 2 * pad, 18 },
+        TextFormat("Drawn: %d  Culled: %d", perf.statsDrawn, perf.statsCulled));
+    row += 22;
+
+    /* Culling efficiency bar */
+    int total = perf.statsDrawn + perf.statsCulled;
+    float cullRatio = (total > 0) ? (float)perf.statsCulled / (float)total : 0.0f;
+
+    GuiLabel((Rectangle) { x + pad, row, w - 2 * pad, 14 }, "Cull ratio:");
+    row += 14;
+    float bw = w - 2 * pad - 80;
+    GuiProgressBar((Rectangle) { x + pad, row, bw, 14 }, NULL,
+        TextFormat("%.0f%%", cullRatio * 100.0f),
+        & cullRatio, 0, 1);
+    row += 22;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
  *  Public API
  * ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -144,6 +187,7 @@ void DEBUG_Init(void)
     visible = false;
 
     DEBUG_RegisterPanel(0, "Performance", DrawPerfPanel);
+    DEBUG_RegisterPanel(1, "Renderer", DrawRendererPanel);
     GuiSetStyle(DEFAULT, TEXT_SIZE, 13);
 }
 

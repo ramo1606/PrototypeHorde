@@ -179,6 +179,27 @@ void RENDERER_BuildDrawList(Renderer* renderer, float alpha)
     renderer->statsCulled = 0;
     renderer->drawCount = 0;
 
+    /* ── Extract frustum planes from the current camera ───────────────── */
+    /*
+     * Build the view-projection matrix:
+     *   view = GetCameraMatrix (raylib's camera → view transform)
+     *   proj = perspective from fovy + aspect + near/far
+     *   viewProj = view * proj
+     *
+     * Gribb-Hartmann extracts the 6 frustum planes from viewProj.
+     */
+    Matrix view = GetCameraMatrix(renderer->camera);
+    float aspect = (float)GetScreenWidth() / (float)GetScreenHeight();
+    Matrix proj = MatrixPerspective(
+        renderer->camera.fovy * DEG2RAD,
+        aspect,
+        RENDERER_NEAR_PLANE,
+        RENDERER_FAR_PLANE
+    );
+    Matrix viewProj = MatrixMultiply(view, proj);
+    RENDERER_ExtractFrustumPlanes(renderer->frustum, viewProj);
+
+    /* ── Build draw list with frustum culling ─────────────────────────── */
     for (int i = 0; i < MAX_RENDERABLES; i++)
     {
         if (!renderer->renderables[i].active) continue;
@@ -188,9 +209,35 @@ void RENDERER_BuildDrawList(Renderer* renderer, float alpha)
         /* Interpolate transform between prev and curr */
         Matrix interp = LerpMatrix(r->transformPrev, r->transformCurr, alpha);
 
-        /* TODO Task 1.3: frustum cull check using interpolated position.
-         * Transform boundingCenter by interp, test against frustum planes.
-         * For now, everything passes. */
+        /*
+         * Transform bounding sphere to world space:
+         *   - Center: apply the interpolated transform
+         *   - Radius: scale by the max axis scale factor of the transform
+         *
+         * Extracting the scale: each column of the 3x3 rotation part has
+         * length equal to the scale on that axis. We take the max to be
+         * conservative — this overestimates for non-uniform scale, which
+         * means we might not cull something we could, but we'll never
+         * cull something visible.
+         */
+        Vector3 worldCenter = Vector3Transform(r->boundingCenter, interp);
+
+        float sx = sqrtf(interp.m0 * interp.m0 + interp.m1 * interp.m1 + interp.m2 * interp.m2);
+        float sy = sqrtf(interp.m4 * interp.m4 + interp.m5 * interp.m5 + interp.m6 * interp.m6);
+        float sz = sqrtf(interp.m8 * interp.m8 + interp.m9 * interp.m9 + interp.m10 * interp.m10);
+        float maxScale = sx > sy ? (sx > sz ? sx : sz) : (sy > sz ? sy : sz);
+        float worldRadius = r->boundingRadius * maxScale;
+
+        /* Frustum test */
+        if (!RENDERER_IsSphereInFrustum(renderer->frustum, worldCenter, worldRadius))
+        {
+            renderer->statsCulled++;
+            continue;
+        }
+
+        /* Passed culling — compute distance to camera for sorting */
+        Vector3 toCamera = Vector3Subtract(renderer->camera.position, worldCenter);
+        float distSq = Vector3DotProduct(toCamera, toCamera);
 
          /* Add to draw list with cached interpolated transform */
         DrawEntry* entry = &renderer->drawList[renderer->drawCount];
@@ -294,25 +341,95 @@ void RENDERER_ComputeBoundingSphere(Model model,
     *outRadius = sqrtf(dx * dx + dy * dy + dz * dz);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
- *  Frustum Culling (Task 1.3 — stub for now)
- * ═══════════════════════════════════════════════════════════════════════════ */
+ /* ═══════════════════════════════════════════════════════════════════════════
+  *  Frustum Culling (Task 1.3)
+  *
+  *  Gribb-Hartmann method: extract the 6 frustum planes directly from the
+  *  combined view-projection matrix. Each plane comes from adding or
+  *  subtracting row 3 with rows 0, 1, or 2 of the matrix.
+  *
+  *  Raylib Matrix layout (row-major naming, column-major storage):
+  *      Row 0: m0  m4  m8   m12
+  *      Row 1: m1  m5  m9   m13
+  *      Row 2: m2  m6  m10  m14
+  *      Row 3: m3  m7  m11  m15
+  *
+  *  Plane indices: 0=Left, 1=Right, 2=Bottom, 3=Top, 4=Near, 5=Far
+  *
+  *  Reference: "Fast Extraction of Viewing Frustum Planes from the
+  *  World-View-Projection Matrix" — Gil Gribb & Klaus Hartmann
+  * ═══════════════════════════════════════════════════════════════════════════ */
 
-void RENDERER_ExtractFrustumPlanes(FrustumPlane planes[6], Matrix viewProj)
+static void NormalizePlane(FrustumPlane* p)
 {
-    (void)planes;
-    (void)viewProj;
-    /* TODO Task 1.3: Extract 6 planes using Gribb-Hartmann method */
+    float len = sqrtf(p->a * p->a + p->b * p->b + p->c * p->c);
+    if (len > 0.0f)
+    {
+        float inv = 1.0f / len;
+        p->a *= inv;
+        p->b *= inv;
+        p->c *= inv;
+        p->d *= inv;
+    }
 }
 
+void RENDERER_ExtractFrustumPlanes(FrustumPlane planes[6], Matrix m)
+{
+    /* Left:   row3 + row0 */
+    planes[0] = (FrustumPlane){ m.m3 + m.m0, m.m7 + m.m4, m.m11 + m.m8,  m.m15 + m.m12 };
+    /* Right:  row3 - row0 */
+    planes[1] = (FrustumPlane){ m.m3 - m.m0, m.m7 - m.m4, m.m11 - m.m8,  m.m15 - m.m12 };
+    /* Bottom: row3 + row1 */
+    planes[2] = (FrustumPlane){ m.m3 + m.m1, m.m7 + m.m5, m.m11 + m.m9,  m.m15 + m.m13 };
+    /* Top:    row3 - row1 */
+    planes[3] = (FrustumPlane){ m.m3 - m.m1, m.m7 - m.m5, m.m11 - m.m9,  m.m15 - m.m13 };
+    /* Near:   row3 + row2 */
+    planes[4] = (FrustumPlane){ m.m3 + m.m2, m.m7 + m.m6, m.m11 + m.m10, m.m15 + m.m14 };
+    /* Far:    row3 - row2 */
+    planes[5] = (FrustumPlane){ m.m3 - m.m2, m.m7 - m.m6, m.m11 - m.m10, m.m15 - m.m14 };
+
+    /*
+     * Normalize all planes so that (a,b,c) is unit length.
+     * This makes the signed distance test in IsSphereInFrustum
+     * return distances in world units, which we need to compare
+     * against the bounding sphere radius.
+     */
+    for (int i = 0; i < 6; i++)
+    {
+        NormalizePlane(&planes[i]);
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  Sphere-vs-Frustum Test
+ *
+ *  Returns true if the sphere is at least partially inside the frustum.
+ *  For each plane, we compute the signed distance from the sphere center
+ *  to the plane. If the distance is less than -radius for ANY plane,
+ *  the sphere is entirely behind that plane (outside the frustum).
+ *
+ *  This is conservative: it may return true for spheres that are actually
+ *  outside (false positives at frustum corners), but never returns false
+ *  for visible spheres (no false negatives). This is the correct tradeoff
+ *  for culling — drawing one extra is fine, missing one visible is not.
+ * ═══════════════════════════════════════════════════════════════════════════ */
 bool RENDERER_IsSphereInFrustum(const FrustumPlane planes[6],
     Vector3 center, float radius)
 {
-    (void)planes;
-    (void)center;
-    (void)radius;
-    /* TODO Task 1.3: Test sphere against all 6 planes */
-    return true;  /* Default: everything is visible */
+    for (int i = 0; i < 6; i++)
+    {
+        float dist = planes[i].a * center.x
+            + planes[i].b * center.y
+            + planes[i].c * center.z
+            + planes[i].d;
+
+        if (dist < -radius)
+        {
+            return false;   /* Entirely behind this plane → invisible */
+        }
+    }
+
+    return true;    /* Passed all 6 planes → at least partially visible */
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
