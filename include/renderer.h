@@ -72,6 +72,14 @@ struct Renderer
     Camera3D camera;
     Color clearColor;
 
+    Shader celShader;               /* Loaded via resource manager          */
+    int locLightDir;                /* Uniform: vec3 light direction        */
+    int locAmbient;                 /* Uniform: float ambient level         */
+    int locNumBands;                /* Uniform: float band count            */
+    Vector3 lightDir;               /* Current light direction (normalized) */
+    float ambient;                  /* Current ambient level [0..1]         */
+    float numBands;                 /* Current band count (e.g. 3.0)        */
+
     /* Renderable pool */
     Renderable renderables[MAX_RENDERABLES];
     int renderableCount;                /* Number of active renderables         */
@@ -108,12 +116,17 @@ void RENDERER_PreUpdate(Renderer* renderer);
 void RENDERER_BuildDrawList(Renderer* renderer, float alpha);
 void RENDERER_Draw3D(Renderer* renderer);
 
-
 /* ── Camera Control ──────────────────────────────────────────────────────── */
 
 void RENDERER_SetCamera(Renderer* renderer, Camera3D camera);
 Camera3D RENDERER_GetCamera(const Renderer* renderer);
 void RENDERER_SetClearColor(Renderer* renderer, Color color);
+
+/* ── Lighting (Cel Shader) ───────────────────────────────────────────────── */
+
+void RENDERER_SetLightDir(Renderer* renderer, Vector3 dir);
+void RENDERER_SetAmbient(Renderer* renderer, float ambient);
+void RENDERER_SetNumBands(Renderer* renderer, float numBands);
 
 /* ── Frustum Culling ────────── */
 

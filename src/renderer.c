@@ -1,4 +1,5 @@
 ﻿#include "renderer.h"
+#include "resource_manager.h"
 #include "raylib.h"
 #include "raymath.h"
 
@@ -37,6 +38,30 @@ void RENDERER_Init(Renderer* renderer)
         .projection = CAMERA_PERSPECTIVE,
     };
 
+    /* ── Cel shader setup (Task 1.5) ──────────────────────────────────── */
+    /*
+     * Load the shader via resource manager (path: assets/shaders/cel).
+     * Then get uniform locations for our custom params, and tell raylib
+     * where matModel lives so it auto-sets it per DrawModel call.
+     */
+    RESOURCE_Load(RES_SHADER_CEL);
+    renderer->celShader = RESOURCE_GetShader(RES_SHADER_CEL);
+
+    /* Tell raylib where the model matrix uniform is in our shader.
+     * This makes raylib set matModel automatically before each draw. */
+    renderer->celShader.locs[SHADER_LOC_MATRIX_MODEL] =
+        GetShaderLocation(renderer->celShader, "matModel");
+
+    /* Cache custom uniform locations */
+    renderer->locLightDir = GetShaderLocation(renderer->celShader, "lightDir");
+    renderer->locAmbient = GetShaderLocation(renderer->celShader, "ambient");
+    renderer->locNumBands = GetShaderLocation(renderer->celShader, "numBands");
+
+    /* Default lighting: light from upper-right-front */
+    renderer->lightDir = Vector3Normalize((Vector3) { 0.5f, 1.0f, 0.3f });
+    renderer->ambient = 0.2f;
+    renderer->numBands = 3.0f;
+
     TraceLog(LOG_INFO, "RENDERER: Initialized (max %d renderables)", MAX_RENDERABLES);
 }
 
@@ -72,6 +97,15 @@ RenderHandle RENDERER_Register(Renderer* renderer, Model model, int materialID)
             RENDERER_ComputeBoundingSphere(model,
                 &r->boundingCenter,
                 &r->boundingRadius);
+
+            /* Assign cel shader to all materials of this model.
+             * Note: r->model.materials is a shared pointer — this also
+             * affects the original model, which is desired since all
+             * renderables should use cel shading. */
+            for (int m = 0; m < r->model.materialCount; m++)
+            {
+                r->model.materials[m].shader = renderer->celShader;
+            }
 
             renderer->renderableCount++;
 
@@ -295,6 +329,17 @@ void RENDERER_Draw3D(Renderer* renderer)
 {
     assert(renderer);
 
+    /*
+     * Set cel shader uniforms once per frame.
+     * These are global (same for all objects): light direction, ambient,
+     * and band count. Per-object uniforms (matModel) are set automatically
+     * by raylib because we registered SHADER_LOC_MATRIX_MODEL in Init.
+     */
+    float lightDirArr[3] = { renderer->lightDir.x, renderer->lightDir.y, renderer->lightDir.z };
+    SetShaderValue(renderer->celShader, renderer->locLightDir, lightDirArr, SHADER_UNIFORM_VEC3);
+    SetShaderValue(renderer->celShader, renderer->locAmbient, &renderer->ambient, SHADER_UNIFORM_FLOAT);
+    SetShaderValue(renderer->celShader, renderer->locNumBands, &renderer->numBands, SHADER_UNIFORM_FLOAT);
+
     for (int d = 0; d < renderer->drawCount; d++)
     {
         DrawEntry* entry = &renderer->drawList[d];
@@ -328,6 +373,32 @@ void RENDERER_SetClearColor(Renderer* renderer, Color color)
 {
     assert(renderer);
     renderer->clearColor = color;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  Lighting (Cel Shader Parameters)
+ *
+ *  These control the cel shading appearance. Levels can call these to
+ *  set different moods (e.g. top-down noon light vs low-angle sunset).
+ *  Values are applied in Draw3D before the draw loop.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+void RENDERER_SetLightDir(Renderer* renderer, Vector3 dir)
+{
+    assert(renderer);
+    renderer->lightDir = Vector3Normalize(dir);
+}
+
+void RENDERER_SetAmbient(Renderer* renderer, float ambient)
+{
+    assert(renderer);
+    renderer->ambient = ambient;
+}
+
+void RENDERER_SetNumBands(Renderer* renderer, float numBands)
+{
+    assert(renderer);
+    renderer->numBands = numBands;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
