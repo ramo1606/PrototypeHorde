@@ -1,12 +1,15 @@
 ﻿/*******************************************************************************************
 *
-*   level_test_a.c — Test Level A: demonstrates the Renderer pipeline
+*   level_test_a.c — Test Level A: Renderer + Orbit Camera
 *
-*   This level creates a cube model programmatically, registers it with
-*   the renderer, and updates its transform each tick. The renderer handles
-*   interpolation, clear, BeginMode3D, drawing, and EndMode3D.
+*   A movable "dummy target" controlled with WASD, moving RELATIVE to
+*   the camera direction (Uncharted-style). Mouse orbits the camera.
 *
-*   Press SPACE to transition to Level B.
+*   Controls:
+*     WASD            — move dummy (relative to camera facing)
+*     Mouse           — orbit camera around dummy
+*     Right click     — toggle AIM mode (over-the-shoulder)
+*     SPACE           — transition to Level B
 *
 ********************************************************************************************/
 
@@ -17,75 +20,118 @@
 #include "config.h"
 #include "level_manager.h"
 #include "renderer.h"
+#include "camera.h"
 #include "raylib.h"
+#include "raymath.h"
 #include <math.h>
 
-typedef struct 
+/* ── Per-level data ──────────────────────────────────────────────────────── */
+
+typedef struct
 {
+    /* Orbiting marker (tests frustum culling) */
     float        rotation;
     float        rotationPrev;
-    Model        cubeModel;          /* Generated cube mesh → model */
-    Model        markerModel;        /* Small sphere for the orbiting marker */
-    RenderHandle cubeHandle;         /* Handle in the renderer */
+    Model        markerModel;
     RenderHandle markerHandle;
+
+    /* Dummy target (simulates player) */
+    Vector3      dummyPos;
+    float        dummyYaw;           /* Visual facing (radians) */
+    float        dummySpeed;
+    Model        dummyModel;
+    RenderHandle dummyHandle;
+
+    /* Static reference cube at origin */
+    Model        cubeModel;
+    RenderHandle cubeHandle;
 } TestAData;
 
 static TestAData* data = NULL;
 
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  Lifecycle
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
 static void Init(Game* game)
 {
     data = ARENA_ALLOC(&game->level, TestAData);
+
+    /* Orbiting marker */
     data->rotation = 0.0f;
     data->rotationPrev = 0.0f;
-
-    /* Create models from generated meshes (no external files needed) */
-    data->cubeModel = LoadModelFromMesh(GenMeshCube(1.0f, 1.0f, 1.0f));
     data->markerModel = LoadModelFromMesh(GenMeshSphere(0.2f, 8, 8));
-
-    /* Register with the renderer — this is the pattern all gameplay
-     * entities will follow: create model, register, get handle. */
-    data->cubeHandle = RENDERER_Register(&game->renderer, data->cubeModel, 0);
     data->markerHandle = RENDERER_Register(&game->renderer, data->markerModel, 0);
 
-    /* Set initial transforms */
+    /* Static reference cube at origin */
+    data->cubeModel = LoadModelFromMesh(GenMeshCube(1.0f, 1.0f, 1.0f));
+    data->cubeHandle = RENDERER_Register(&game->renderer, data->cubeModel, 0);
     RENDERER_SetTransform(&game->renderer, data->cubeHandle,
         MatrixTranslate(0.0f, 0.5f, 0.0f));
 
-    /* Configure the renderer's camera for this level */
-    RENDERER_SetCamera(&game->renderer, (Camera3D) {
-        .position = (Vector3){ 4.0f, 4.0f, 4.0f },
-            .target = (Vector3){ 0.0f, 0.5f, 0.0f },
-            .up = (Vector3){ 0.0f, 1.0f, 0.0f },
-            .fovy = 60.0f,
-            .projection = CAMERA_PERSPECTIVE,
-    });
+    /* Dummy target */
+    data->dummyPos = (Vector3){ 0.0f, 0.0f, 3.0f };
+    data->dummyYaw = 0.0f;
+    data->dummySpeed = 5.0f;
+    data->dummyModel = LoadModelFromMesh(GenMeshCube(0.6f, 1.0f, 0.6f));
+    data->dummyHandle = RENDERER_Register(&game->renderer, data->dummyModel, 0);
+    RENDERER_SetTransform(&game->renderer, data->dummyHandle,
+        MatrixTranslate(data->dummyPos.x, 0.5f, data->dummyPos.z));
+
+    /* Camera starts looking at the dummy */
+    GAME_CAMERA_SetTarget(&game->camera, data->dummyPos);
+
+    /* Lock and hide cursor for mouse orbit */
+    DisableCursor();
+
     RENDERER_SetClearColor(&game->renderer, (Color) { 25, 40, 80, 255 });
 }
 
 static void Shutdown(Game* game)
 {
-    /* Unregister from renderer BEFORE models are unloaded */
-    if (data) {
-        RENDERER_Unregister(&game->renderer, data->cubeHandle);
-        RENDERER_Unregister(&game->renderer, data->markerHandle);
+    EnableCursor();
 
-        /* Unload the generated models (free GPU resources) */
-        UnloadModel(data->cubeModel);
+    if (data)
+    {
+        RENDERER_Unregister(&game->renderer, data->markerHandle);
+        RENDERER_Unregister(&game->renderer, data->cubeHandle);
+        RENDERER_Unregister(&game->renderer, data->dummyHandle);
+
         UnloadModel(data->markerModel);
+        UnloadModel(data->cubeModel);
+        UnloadModel(data->dummyModel);
     }
     data = NULL;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  Input
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
 static void ProcessInput(Game* game)
 {
     if (IsKeyPressed(KEY_SPACE))
+    {
+        EnableCursor();
         LEVEL_MGR_SwitchTo(&game->levelMgr, &LEVEL_TEST_B);
+    }
+
+    /* Toggle AIM mode with right mouse button */
+    if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))
+    {
+        CameraMode current = game->camera.mode;
+        GAME_CAMERA_SetMode(&game->camera,
+            current == CAMERA_MODE_FOLLOW ? CAMERA_MODE_AIM : CAMERA_MODE_FOLLOW);
+    }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  Update (fixed timestep)
+ * ═══════════════════════════════════════════════════════════════════════════ */
 
 static void Update(Game* game, float dt)
 {
-    (void)game;
-
+    /* ── Orbiting marker ──────────────────────────────────────────────── */
     data->rotationPrev = data->rotation;
     data->rotation += 90.0f * dt;
     if (data->rotation > 360.0f) {
@@ -93,55 +139,132 @@ static void Update(Game* game, float dt)
         data->rotationPrev -= 360.0f;
     }
 
-    /*
-     * Update transforms in the renderer.
-     * Note: we set transformCurr here. The renderer already copied
-     * curr→prev in RENDERER_PreUpdate (called by game loop before us).
-     * So prev has LAST tick's value, and curr gets THIS tick's value.
-     */
-    RENDERER_SetTransform(&game->renderer, data->cubeHandle,
-        MatrixMultiply(
-            MatrixRotateY(data->rotation * DEG2RAD),
-            MatrixTranslate(0.0f, 0.5f, 0.0f)
-        ));
-
     float rad = data->rotation * DEG2RAD;
     RENDERER_SetTransform(&game->renderer, data->markerHandle,
         MatrixTranslate(cosf(rad) * 2.0f, 0.5f, sinf(rad) * 2.0f));
 
+    /* ── Mouse orbit ──────────────────────────────────────────────────── */
+    Vector2 mouseDelta = GetMouseDelta();
+    GAME_CAMERA_RotateByMouse(&game->camera, mouseDelta.x, mouseDelta.y);
+
+    /* ── Dummy target movement (camera-relative) ──────────────────────── */
+    float inputForward = 0.0f;
+    float inputRight = 0.0f;
+    if (IsKeyDown(KEY_W)) inputForward += 1.0f;
+    if (IsKeyDown(KEY_S)) inputForward -= 1.0f;
+    if (IsKeyDown(KEY_D)) inputRight += 1.0f;
+    if (IsKeyDown(KEY_A)) inputRight -= 1.0f;
+
+    /* Camera-relative directions (XZ only) */
+    Vector3 camFwd = GAME_CAMERA_GetForwardXZ(&game->camera);
+    Vector3 camRight = GAME_CAMERA_GetRightXZ(&game->camera);
+
+    if (inputForward != 0.0f || inputRight != 0.0f)
+    {
+        /* Combine input into world-space move direction */
+        Vector3 moveDir = {
+            camFwd.x * inputForward + camRight.x * inputRight,
+            0.0f,
+            camFwd.z * inputForward + camRight.z * inputRight,
+        };
+
+        /* Normalize to prevent diagonal speed boost */
+        float len = sqrtf(moveDir.x * moveDir.x + moveDir.z * moveDir.z);
+        if (len > 0.0f)
+        {
+            moveDir.x /= len;
+            moveDir.z /= len;
+        }
+
+        data->dummyPos.x += moveDir.x * data->dummySpeed * dt;
+        data->dummyPos.z += moveDir.z * data->dummySpeed * dt;
+
+        /*
+         * FOLLOW: rotate dummy to face movement direction.
+         * AIM:    dummy always faces camera forward (strafe movement).
+         */
+        if (game->camera.mode == CAMERA_MODE_FOLLOW)
+        {
+            data->dummyYaw = atan2f(moveDir.x, moveDir.z);
+        }
+    }
+
     /*
-     * Free camera for testing — WASD + mouse.
-     * This is a temporary debug aid, NOT the final camera system (Task 1.6).
-     * UpdateCamera reads mouse/keyboard input and moves the camera.
+     * In AIM mode, the character always faces where the camera looks,
+     * regardless of movement. This happens every tick (not just when moving)
+     * so the character tracks the camera even while standing still.
      */
-    Camera3D cam = RENDERER_GetCamera(&game->renderer);
-    UpdateCamera(&cam, CAMERA_FREE);
-    RENDERER_SetCamera(&game->renderer, cam);
+    if (game->camera.mode == CAMERA_MODE_AIM)
+    {
+        data->dummyYaw = atan2f(camFwd.x, camFwd.z);
+    }
+
+    /* Update dummy transform */
+    RENDERER_SetTransform(&game->renderer, data->dummyHandle,
+        MatrixMultiply(
+            MatrixRotateY(data->dummyYaw),
+            MatrixTranslate(data->dummyPos.x, 0.5f, data->dummyPos.z)
+        ));
+
+    /* Feed camera target (smoothing happens in GAME_CAMERA_Update per frame) */
+    GAME_CAMERA_SetTarget(&game->camera, data->dummyPos);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  Render3D
+ * ═══════════════════════════════════════════════════════════════════════════ */
 
 static void Render3D(Game* game, float alpha)
 {
     (void)game;
     (void)alpha;
-
-    /* Grid for reference (will be replaced by arena floor) */
     DrawGrid(20, 1.0f);
+
+    /* Facing direction arrow on the dummy */
+    if (data)
+    {
+        float arrowLen = 1.5f;
+        float yaw = data->dummyYaw;
+        Vector3 base = { data->dummyPos.x, 0.05f, data->dummyPos.z };
+        Vector3 dir = { sinf(yaw) * arrowLen, 0.0f, cosf(yaw) * arrowLen };
+        Vector3 tip = Vector3Add(base, dir);
+
+        /* Shaft */
+        DrawLine3D(base, tip, YELLOW);
+
+        /* Arrowhead: small cone pointing in the facing direction */
+        Vector3 coneBase = Vector3Add(base, (Vector3) {
+            dir.x * 0.75f, 0.0f, dir.z * 0.75f
+        });
+        DrawCylinderEx(coneBase, tip, 0.15f, 0.0f, 6, YELLOW);
+    }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  RenderHUD
+ * ═══════════════════════════════════════════════════════════════════════════ */
 
 static void RenderHUD(Game* game, float alpha)
 {
     (void)alpha;
 
-    DrawText("LEVEL A — Renderer pipeline", 10, SCREEN_HEIGHT - 80, 20, RAYWHITE);
+    const char* modeStr = (game->camera.mode == CAMERA_MODE_AIM) ? "AIM" : "FOLLOW";
+
+    DrawText("LEVEL A — Orbit camera", 10, SCREEN_HEIGHT - 110, 20, RAYWHITE);
     DrawText(TextFormat("Drawn: %d  Culled: %d",
         game->renderer.statsDrawn, game->renderer.statsCulled),
-        10, SCREEN_HEIGHT - 55, 16, GREEN);
-    DrawText("Press SPACE -> Level B", 10, SCREEN_HEIGHT - 30, 16, LIGHTGRAY);
+        10, SCREEN_HEIGHT - 85, 16, GREEN);
+    DrawText(TextFormat("Camera: %s", modeStr), 10, SCREEN_HEIGHT - 63, 16, YELLOW);
+    DrawText("WASD: move  |  Mouse: orbit  |  RMB: aim", 10, SCREEN_HEIGHT - 43, 16, LIGHTGRAY);
+    DrawText("SPACE: Level B", 10, SCREEN_HEIGHT - 23, 16, LIGHTGRAY);
 }
 
-Level LEVEL_TEST_A = 
-{
-    .name = "Test A (renderer)",
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  Level Definition
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+Level LEVEL_TEST_A = {
+    .name = "Test A (camera)",
     .Init = Init,
     .Shutdown = Shutdown,
     .ProcessInput = ProcessInput,

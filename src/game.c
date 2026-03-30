@@ -96,6 +96,7 @@ bool GAME_Init(Game* game, Level* initialLevel)
     RESOURCE_Init();
     DEBUG_Init();
     RENDERER_Init(&game->renderer);
+    GAME_CAMERA_Init(&game->camera);
     LEVEL_MGR_Init(&game->levelMgr, game, initialLevel);
 
     /* Timing */
@@ -177,6 +178,17 @@ void GAME_Run(Game* game)
         /* --- Reset scratch arena (per-frame temporaries) -------------- */
         ARENA_Reset(&game->scratch);
 
+        /* --- Camera update (per visual frame, not per tick) ----------- */
+        /*
+         * The camera smooths its position using frameTime (visual dt).
+         * Levels set the target position during their Update (fixed tick),
+         * so by this point the target is up to date.
+         * After updating, push the Camera3D to the renderer so
+         * BuildDrawList and BeginMode3D use the latest camera.
+         */
+        GAME_CAMERA_Update(&game->camera, frameTime);
+        RENDERER_SetCamera(&game->renderer, game->camera.camera);
+
         /* --- Render --------------------------------------------------- */
         /*
          * The game loop is the "director" of the render sequence.
@@ -196,29 +208,29 @@ void GAME_Run(Game* game)
          */
         BeginDrawing();
 
-        ClearBackground(game->renderer.clearColor);
+            ClearBackground(game->renderer.clearColor);
 
-        /* Prepare draw list (interpolation, culling, sorting) */
-        RENDERER_BuildDrawList(&game->renderer, game->alpha);
+            /* Prepare draw list (interpolation, culling, sorting) */
+            RENDERER_BuildDrawList(&game->renderer, game->alpha);
 
-        /* ── 3D phase ── */
-        BeginMode3D(game->renderer.camera);
+            /* ── 3D phase ── */
+            BeginMode3D(game->renderer.camera);
 
-            RENDERER_Draw3D(&game->renderer);
-            LEVEL_MGR_Render3D(&game->levelMgr, game, game->alpha);
-            DEBUG_Render3D(game);
+                RENDERER_Draw3D(&game->renderer);
+                LEVEL_MGR_Render3D(&game->levelMgr, game, game->alpha);
+                DEBUG_Render3D(game);
 
-        EndMode3D();
+            EndMode3D();
 
-        /* ── 2D phase ── */
-        LEVEL_MGR_RenderHUD(&game->levelMgr, game, game->alpha);
+            /* ── 2D phase ── */
+            LEVEL_MGR_RenderHUD(&game->levelMgr, game, game->alpha);
 
-        DEBUG_Update(game);
-        FeedDebugStats(game);
-        DEBUG_Render(game);
+            DEBUG_Update(game);
+            FeedDebugStats(game);
+            DEBUG_Render(game);
 
-        /* Transition overlay (drawn last, covers everything) */
-        LEVEL_MGR_Render(&game->levelMgr);
+            /* Transition overlay (drawn last, covers everything) */
+            LEVEL_MGR_Render(&game->levelMgr);
 
         EndDrawing();
     }
