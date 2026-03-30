@@ -62,12 +62,59 @@ void RENDERER_Init(Renderer* renderer)
     renderer->ambient = 0.2f;
     renderer->numBands = 3.0f;
 
+    /* ── Blob shadow setup (Task 1.7) ─────────────────────────────────── */
+    /*
+     * Generate a radial gradient texture: dark center → transparent edges.
+     * This is drawn on a flat plane beneath each entity to fake a shadow.
+     */
+    {
+#define SHADOW_TEX_SIZE 64
+        Image img = GenImageColor(SHADOW_TEX_SIZE, SHADOW_TEX_SIZE, BLANK);
+        Color* pixels = (Color*)img.data;
+        float half = SHADOW_TEX_SIZE * 0.5f;
+
+        for (int y = 0; y < SHADOW_TEX_SIZE; y++)
+        {
+            for (int x = 0; x < SHADOW_TEX_SIZE; x++)
+            {
+                float dx = (x + 0.5f - half) / half;   /* -1 to +1 */
+                float dy = (y + 0.5f - half) / half;
+                float dist = sqrtf(dx * dx + dy * dy);  /* 0 at center, 1 at edge */
+
+                /* Smooth falloff: fully opaque at center, transparent at edge */
+                float alpha = 1.0f - dist;
+                if (alpha < 0.0f) alpha = 0.0f;
+                alpha *= alpha;  /* Quadratic falloff for softer edge */
+
+                unsigned char a = (unsigned char)(alpha * 160.0f);  /* Max ~63% opaque */
+                pixels[y * SHADOW_TEX_SIZE + x] = (Color){ 0, 0, 0, a };
+            }
+        }
+
+        renderer->shadowTex = LoadTextureFromImage(img);
+        UnloadImage(img);
+#undef SHADOW_TEX_SIZE
+
+        /* Create a 1×1 plane mesh, scaled per-shadow at draw time */
+        Mesh planeMesh = GenMeshPlane(1.0f, 1.0f, 1, 1);
+        renderer->shadowPlane = LoadModelFromMesh(planeMesh);
+
+        /* Assign shadow texture to the plane's material (default shader) */
+        renderer->shadowPlane.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture =
+            renderer->shadowTex;
+    }
+
     TraceLog(LOG_INFO, "RENDERER: Initialized (max %d renderables)", MAX_RENDERABLES);
 }
 
 void RENDERER_Shutdown(Renderer* renderer)
 {
     assert(renderer);
+
+    /* Unload blob shadow resources */
+    UnloadModel(renderer->shadowPlane);
+    UnloadTexture(renderer->shadowTex);
+
     memset(renderer->renderables, 0, sizeof(renderer->renderables));
     renderer->renderableCount = 0;
     TraceLog(LOG_INFO, "RENDERER: Shutdown");
@@ -168,6 +215,17 @@ void RENDERER_PreUpdate(Renderer* renderer)
             renderer->renderables[i].transformPrev = renderer->renderables[i].transformCurr;
         }
     }
+}
+
+void RENDERER_SetBlobShadow(Renderer* renderer, RenderHandle handle,
+    bool enabled, float radius)
+{
+    assert(renderer);
+    if (handle < 0 || handle >= MAX_RENDERABLES) return;
+    if (!renderer->renderables[handle].active) return;
+
+    renderer->renderables[handle].blobShadow = enabled;
+    renderer->renderables[handle].blobRadius = radius;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -350,6 +408,63 @@ void RENDERER_Draw3D(Renderer* renderer)
         DrawModel(r->model, (Vector3) { 0, 0, 0 }, 1.0f, WHITE);
 
         renderer->statsDrawn++;
+    }
+
+    /* ── Blob shadow pass (Task 1.7) ──────────────────────────────────── */
+    /*
+     * For each visible renderable with blobShadow enabled, draw a
+     * flat textured plane on the ground. The shadow scales down and
+     * fades out as the entity gets higher (simulates jump/fall).
+     *
+     * We draw after models so depth testing handles occlusion naturally.
+     * Alpha blending is needed because the shadow texture has transparency.
+     */
+    {
+#define SHADOW_MAX_HEIGHT 6.0f      /* Height at which shadow disappears   */
+#define SHADOW_GROUND_Y   0.01f     /* Slightly above ground to avoid z-fight */
+
+        BeginBlendMode(BLEND_ALPHA);
+
+        for (int d = 0; d < renderer->drawCount; d++)
+        {
+            DrawEntry* entry = &renderer->drawList[d];
+            Renderable* r = &renderer->renderables[entry->index];
+
+            if (!r->blobShadow) continue;
+
+            /* Extract world position from the cached interpolated transform */
+            float wx = entry->transform.m12;
+            float wy = entry->transform.m13;
+            float wz = entry->transform.m14;
+
+            /* Height above ground (assume ground at Y=0) */
+            float height = wy;
+            if (height < 0.0f) height = 0.0f;
+            if (height > SHADOW_MAX_HEIGHT) continue;  /* Too high → no shadow */
+
+            /* Scale: shrinks as entity rises */
+            float heightRatio = height / SHADOW_MAX_HEIGHT;
+            float scale = r->blobRadius * 2.0f * (1.0f - heightRatio * 0.5f);
+
+            /* Alpha: fades as entity rises */
+            unsigned char alpha = (unsigned char)(255.0f * (1.0f - heightRatio));
+
+            /* Build shadow transform: position at ground, scaled */
+            renderer->shadowPlane.transform = MatrixMultiply(
+                MatrixScale(scale, 1.0f, scale),
+                MatrixTranslate(wx, SHADOW_GROUND_Y, wz)
+            );
+
+            DrawModel(renderer->shadowPlane, (Vector3) { 0, 0, 0 }, 1.0f,
+                (Color) {
+                255, 255, 255, alpha
+            });
+        }
+
+        EndBlendMode();
+
+#undef SHADOW_MAX_HEIGHT
+#undef SHADOW_GROUND_Y
     }
 }
 

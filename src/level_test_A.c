@@ -69,6 +69,8 @@ static void Init(Game* game)
     RENDERER_SetTransform(&game->renderer, data->cubeHandle,
         MatrixTranslate(0.0f, 0.5f, 0.0f));
 
+    RENDERER_SetBlobShadow(&game->renderer, data->cubeHandle, true, 0.7f);
+
     /* Dummy target */
     data->dummyPos = (Vector3){ 0.0f, 0.0f, 3.0f };
     data->dummyYaw = 0.0f;
@@ -77,6 +79,7 @@ static void Init(Game* game)
     data->dummyHandle = RENDERER_Register(&game->renderer, data->dummyModel, 0);
     RENDERER_SetTransform(&game->renderer, data->dummyHandle,
         MatrixTranslate(data->dummyPos.x, 0.5f, data->dummyPos.z));
+    RENDERER_SetBlobShadow(&game->renderer, data->dummyHandle, true, 0.5f);
 
     /* Camera starts looking at the dummy */
     GAME_CAMERA_SetTarget(&game->camera, data->dummyPos);

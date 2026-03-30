@@ -43,6 +43,8 @@ struct Renderable
     float boundingRadius;       /* Bounding sphere radius for culling       */
     int materialID;             /* For sorting (group by shader/texture)    */
     bool active;                /* Slot in use?                             */
+    bool blobShadow;            /* Draw a blob shadow under this object?    */
+    float blobRadius;           /* Shadow radius on the ground (world units)*/
 };
 
 /* ── Frustum Plane ───────────────────────────────────────────────────────── */
@@ -80,6 +82,10 @@ struct Renderer
     float ambient;                  /* Current ambient level [0..1]         */
     float numBands;                 /* Current band count (e.g. 3.0)        */
 
+    /* Blob shadows (Task 1.7) */
+    Model shadowPlane;              /* Flat disc model for shadow drawing   */
+    Texture shadowTex;              /* Radial gradient: dark center → clear */
+
     /* Renderable pool */
     Renderable renderables[MAX_RENDERABLES];
     int renderableCount;                /* Number of active renderables         */
@@ -110,6 +116,12 @@ void RENDERER_Unregister(Renderer* renderer, RenderHandle handle);
 
 void RENDERER_SetTransform(Renderer* renderer, RenderHandle handle, Matrix transform);
 void RENDERER_PreUpdate(Renderer* renderer);
+
+/* ── Blob Shadows ────────────────────────────────────────────────────────── */
+
+/* Enable/disable blob shadow for a renderable, with a ground radius. */
+void RENDERER_SetBlobShadow(Renderer* renderer, RenderHandle handle,
+    bool enabled, float radius);
 
 /* ── Frame Drawing (split pipeline) ──────────────────────────────────────── */
 
