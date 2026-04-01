@@ -171,7 +171,38 @@ static void DrawRendererPanel(float x, float y, float w, float h)
     float bw = w - 2 * pad - 80;
     GuiProgressBar((Rectangle) { x + pad, row, bw, 14 }, NULL,
         TextFormat("%.0f%%", cullRatio * 100.0f),
-        & cullRatio, 0, 1);
+        &cullRatio, 0, 1);
+    row += 22;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  Built-in: Physics Panel (F4)
+ *
+ *  Shows physics world stats: active colliders, pairs checked,
+ *  contacts found, and trigger overlaps per tick.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+static void DrawPhysicsPanel(float x, float y, float w, float h)
+{
+    GuiGroupBox((Rectangle) { x, y, w, h }, "Physics (F4)");
+
+    float row = y + 20;
+    float pad = 10;
+
+    GuiLabel((Rectangle) { x + pad, row, w - 2 * pad, 18 },
+        TextFormat("Colliders: %d / %d", perf.colliderCount, MAX_COLLIDERS));
+    row += 22;
+
+    GuiLabel((Rectangle) { x + pad, row, w - 2 * pad, 18 },
+        TextFormat("Pairs checked: %d", perf.pairsChecked));
+    row += 22;
+
+    GuiLabel((Rectangle) { x + pad, row, w - 2 * pad, 18 },
+        TextFormat("Contacts: %d", perf.contactsFound));
+    row += 22;
+
+    GuiLabel((Rectangle) { x + pad, row, w - 2 * pad, 18 },
+        TextFormat("Triggers: %d", perf.triggersFound));
     row += 22;
 }
 
@@ -188,6 +219,7 @@ void DEBUG_Init(void)
 
     DEBUG_RegisterPanel(0, "Performance", DrawPerfPanel);
     DEBUG_RegisterPanel(1, "Renderer", DrawRendererPanel);
+    DEBUG_RegisterPanel(2, "Physics", DrawPhysicsPanel);
     GuiSetStyle(DEFAULT, TEXT_SIZE, 13);
 }
 
@@ -261,7 +293,6 @@ void DEBUG_Render(Game* game)
     DrawText("DEBUG | F1 hide | F2-F7 panels", 10, 2, 14, GREEN);
 
     /* Level & transition info on the hint bar */
-    /* (cheap one-liner, always visible when debug is on) */
     LevelManager* mgr = &((Game*)game)->levelMgr;
     Level* active = LEVEL_MGR_GetActiveLevel(mgr);
     const char* levelName = active ? active->name : "(none)";

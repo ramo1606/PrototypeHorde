@@ -13,8 +13,8 @@
 *
 ********************************************************************************************/
 
-#include "level_test_a.h"
-#include "level_test_b.h"
+#include "level_test_A.h"
+#include "level_test_B.h"
 #include "game.h"
 #include "memory.h"
 #include "config.h"
@@ -41,10 +41,17 @@ typedef struct
     float        dummySpeed;
     Model        dummyModel;
     RenderHandle dummyHandle;
+    ColliderHandle dummyColl;        /* Capsule collider */
 
     /* Static reference cube at origin */
     Model        cubeModel;
     RenderHandle cubeHandle;
+    ColliderHandle cubeColl;         /* Box collider */
+
+    /* Obstacle boxes (static scenery) */
+    Model        obstacleModel;
+    RenderHandle obstacleHandles[3];
+    ColliderHandle obstacleColl[3];
 } TestAData;
 
 static TestAData* data = NULL;
@@ -70,16 +77,49 @@ static void Init(Game* game)
         MatrixTranslate(0.0f, 0.5f, 0.0f));
 
     RENDERER_SetBlobShadow(&game->renderer, data->cubeHandle, true, 0.7f);
+    data->cubeColl = PHYS_WORLD_AddBox(&game->physWorld,
+        (Vector3){ 0.0f, 0.5f, 0.0f },
+        (Vector3){ 0.5f, 0.5f, 0.5f },
+        COLLISION_LAYER_SCENERY, COLLISION_MASK_ALL, -1,
+        false, false);
 
     /* Dummy target */
     data->dummyPos = (Vector3){ 0.0f, 0.0f, 3.0f };
     data->dummyYaw = 0.0f;
     data->dummySpeed = 5.0f;
-    data->dummyModel = LoadModelFromMesh(GenMeshCube(0.6f, 1.0f, 0.6f));
+    data->dummyModel = LoadModelFromMesh(GenMeshCube(0.1f, 0.1f, 0.1f));
     data->dummyHandle = RENDERER_Register(&game->renderer, data->dummyModel, 0);
     RENDERER_SetTransform(&game->renderer, data->dummyHandle,
         MatrixTranslate(data->dummyPos.x, 0.5f, data->dummyPos.z));
     RENDERER_SetBlobShadow(&game->renderer, data->dummyHandle, true, 0.5f);
+    data->dummyColl = PHYS_WORLD_AddCapsule(&game->physWorld,
+        (Vector3){ data->dummyPos.x, 0.5f, data->dummyPos.z },
+        0.3f, 0.2f,
+        COLLISION_LAYER_PLAYER, COLLISION_LAYER_SCENERY | COLLISION_LAYER_ENEMY, 0,
+        true, false);
+
+    /* Obstacle boxes — static scenery for collision testing */
+    data->obstacleModel = LoadModelFromMesh(GenMeshCube(2.0f, 1.0f, 1.0f));
+ 
+    Vector3 obstaclePositions[3] = {
+        {  4.0f, 0.5f,  0.0f },
+        { -3.0f, 0.5f,  2.0f },
+        {  1.0f, 0.5f, -4.0f },
+    };
+ 
+    for (int i = 0; i < 3; i++)
+    {
+        data->obstacleHandles[i] = RENDERER_Register(&game->renderer, data->obstacleModel, 0);
+        RENDERER_SetTransform(&game->renderer, data->obstacleHandles[i],
+            MatrixTranslate(obstaclePositions[i].x, obstaclePositions[i].y, obstaclePositions[i].z));
+        RENDERER_SetBlobShadow(&game->renderer, data->obstacleHandles[i], true, 1.2f);
+ 
+        data->obstacleColl[i] = PHYS_WORLD_AddBox(&game->physWorld,
+            obstaclePositions[i],
+            (Vector3){ 1.0f, 0.5f, 0.5f },
+            COLLISION_LAYER_SCENERY, COLLISION_MASK_ALL, -1,
+            false, false);
+    }
 
     /* Camera starts looking at the dummy */
     GAME_CAMERA_SetTarget(&game->camera, data->dummyPos);
@@ -96,13 +136,23 @@ static void Shutdown(Game* game)
 
     if (data)
     {
+        /* Remove colliders */
+        PHYS_WORLD_Remove(&game->physWorld, data->dummyColl);
+        PHYS_WORLD_Remove(&game->physWorld, data->cubeColl);
+        for (int i = 0; i < 3; i++)
+            PHYS_WORLD_Remove(&game->physWorld, data->obstacleColl[i]);
+
+        /* Unregister renderables */
         RENDERER_Unregister(&game->renderer, data->markerHandle);
         RENDERER_Unregister(&game->renderer, data->cubeHandle);
         RENDERER_Unregister(&game->renderer, data->dummyHandle);
+        for (int i = 0; i < 3; i++)
+            RENDERER_Unregister(&game->renderer, data->obstacleHandles[i]);
 
         UnloadModel(data->markerModel);
         UnloadModel(data->cubeModel);
         UnloadModel(data->dummyModel);
+        UnloadModel(data->obstacleModel);
     }
     data = NULL;
 }
@@ -209,6 +259,10 @@ static void Update(Game* game, float dt)
             MatrixTranslate(data->dummyPos.x, 0.5f, data->dummyPos.z)
         ));
 
+    /* Sync capsule collider with dummy position */
+    PHYS_WORLD_SetPosition(&game->physWorld, data->dummyColl,
+        (Vector3){ data->dummyPos.x, 0.5f, data->dummyPos.z });
+
     /* Feed camera target (smoothing happens in GAME_CAMERA_Update per frame) */
     GAME_CAMERA_SetTarget(&game->camera, data->dummyPos);
 }
@@ -259,6 +313,7 @@ static void RenderHUD(Game* game, float alpha)
         10, SCREEN_HEIGHT - 85, 16, GREEN);
     DrawText(TextFormat("Camera: %s", modeStr), 10, SCREEN_HEIGHT - 63, 16, YELLOW);
     DrawText("WASD: move  |  Mouse: orbit  |  RMB: aim", 10, SCREEN_HEIGHT - 43, 16, LIGHTGRAY);
+    DrawText("F1: debug  |  F4: physics wireframes", 10, SCREEN_HEIGHT - 43, 16, LIGHTGRAY);
     DrawText("SPACE: Level B", 10, SCREEN_HEIGHT - 23, 16, LIGHTGRAY);
 }
 

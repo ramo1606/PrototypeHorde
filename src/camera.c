@@ -288,7 +288,7 @@ Vector3 GAME_CAMERA_GetRightXZ(const GameCamera* cam)
  *  If called during a transition, restarts from the current eased values.
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-void GAME_CAMERA_SetMode(GameCamera* cam, CameraMode mode)
+void GAME_CAMERA_SetMode(GameCamera* cam, ECameraMode mode)
 {
     if (mode == cam->mode && !cam->transitioning) return;
 

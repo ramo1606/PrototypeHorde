@@ -7,6 +7,18 @@
 #include <assert.h>
 
 /* ═══════════════════════════════════════════════════════════════════════════
+ *  Debug Callbacks
+ * ═══════════════════════════════════════════════════════════════════════════ */
+ 
+/* Wrapper so PHYS_WORLD_DebugDraw can be registered as a DebugRender3DFn */
+#ifdef DEBUG_ENABLED
+static void PhysDebugDraw3D(Game* game)
+{
+    PHYS_WORLD_DebugDraw(&game->physWorld);
+}
+#endif
+
+/* ═══════════════════════════════════════════════════════════════════════════
  *  Frametime Statistics
  * ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -54,6 +66,10 @@ static void FeedDebugStats(Game* game)
         .drawCount = game->renderer.drawCount,
         .statsDrawn = game->renderer.statsDrawn,
         .statsCulled = game->renderer.statsCulled,
+        .colliderCount = game->physWorld.colliderCount,
+        .pairsChecked = game->physWorld.statsPairsChecked,
+        .contactsFound = game->physWorld.statsContactsFound,
+        .triggersFound = game->physWorld.statsTriggersFound,
     };
     DEBUG_SetPerfStats(&stats);
 }
@@ -97,7 +113,11 @@ bool GAME_Init(Game* game, Level* initialLevel)
     DEBUG_Init();
     RENDERER_Init(&game->renderer);
     GAME_CAMERA_Init(&game->camera);
+    PHYS_WORLD_Init(&game->physWorld);
     LEVEL_MGR_Init(&game->levelMgr, game, initialLevel);
+
+    /* Register physics debug draw (slot 2 = F4) */
+    DEBUG_Register3D(2, PhysDebugDraw3D);
 
     /* Timing */
     game->accumulator = 0.0f;
@@ -161,6 +181,11 @@ void GAME_Run(Game* game)
             /* Input and logic at fixed rate */
             LEVEL_MGR_ProcessInput(&game->levelMgr, game);
             LEVEL_MGR_UpdateLevel(&game->levelMgr, game, FIXED_TIMESTEP);
+
+            /* Physics: process triggers and passive collisions.
+             * Gameplay already called MoveAndCollide during its Update,
+             * so this handles remaining interactions (trigger overlaps). */
+            PHYS_WORLD_Update(&game->physWorld, NULL, NULL);
             
             game->accumulator -= FIXED_TIMESTEP;
             game->updateCount++;

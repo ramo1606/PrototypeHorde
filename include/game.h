@@ -2,6 +2,7 @@
 
 #include "config.h"
 #include "camera.h"
+#include "physics.h"
 #include "memory.h"
 #include "level_manager.h"
 #include "renderer.h"
@@ -20,6 +21,7 @@ typedef struct Game
     /* Subsystems */
     LevelManager levelMgr;
     Renderer     renderer;
+    PhysWorld    physWorld;        /* Physics world (Fase 2) */
     GameCamera   camera;
 
     /* Timing */

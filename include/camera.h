@@ -42,7 +42,7 @@ typedef enum CameraMode
 {
     CAMERA_MODE_FOLLOW,     /* Default orbit: behind and above              */
     CAMERA_MODE_AIM,        /* Over-the-shoulder: closer, lateral offset    */
-} CameraMode;
+} ECameraMode;
 
 /* ── Camera Configuration ────────────────────────────────────────────────── */
 
@@ -90,8 +90,8 @@ typedef struct GameCamera
     float pitch;                /* Vertical orbit angle (radians)           */
 
     /* Mode */
-    CameraMode mode;
-    CameraMode prevMode;
+    ECameraMode mode;
+    ECameraMode prevMode;
 
     /* Target tracking */
     Vector3 targetPos;          /* World position to orbit around           */
@@ -131,7 +131,7 @@ Vector3 GAME_CAMERA_GetRightXZ(const GameCamera* cam);
 
 /* ── Mode Control ────────────────────────────────────────────────────────── */
 
-void GAME_CAMERA_SetMode(GameCamera* cam, CameraMode mode);
+void GAME_CAMERA_SetMode(GameCamera* cam, ECameraMode mode);
 
 /* ── Configuration ───────────────────────────────────────────────────────── */
 

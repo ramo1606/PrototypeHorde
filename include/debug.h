@@ -6,6 +6,8 @@
 
 typedef struct Game Game;
 
+#define DEBUG_ENABLED 1
+
 #ifdef DEBUG_ENABLED
 
 #define DEBUG_MAX_PANELS 6
@@ -53,6 +55,12 @@ typedef struct DebugPerfStats
     int drawCount;           /* Entries in draw list (passed culling)  */
     int statsDrawn;          /* Actually submitted to GPU this frame   */
     int statsCulled;         /* Rejected by frustum culling            */
+
+    /* Physics (Panel F4) */
+    int    colliderCount;       /* Active colliders in pool               */
+    int    pairsChecked;        /* Pairs tested this tick                 */
+    int    contactsFound;       /* Contacts detected this tick            */
+    int    triggersFound;       /* Trigger overlaps this tick             */
 } DebugPerfStats;
 
 void DEBUG_SetPerfStats(const DebugPerfStats* stats);

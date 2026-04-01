@@ -1,13 +1,13 @@
 /*******************************************************************************************
 *
-*   level_test_b.c — Test Level B: red background + rotating sphere
+*   level_test_b.c ï¿½ Test Level B: red background + rotating sphere
 *
 *   Press SPACE to transition back to Level A (uses wipe effect).
 *
 ********************************************************************************************/
 
-#include "level_test_b.h"
-#include "level_test_a.h"
+#include "level_test_B.h"
+#include "level_test_A.h"
 #include "game.h"
 #include "memory.h"
 #include "config.h"
@@ -60,7 +60,7 @@ static void Update(Game* game, float dt)
     }
 
     /*
-     * Free camera for testing — WASD + mouse.
+     * Free camera for testing ï¿½ WASD + mouse.
      * This is a temporary debug aid, NOT the final camera system (Task 1.6).
      * UpdateCamera reads mouse/keyboard input and moves the camera.
      */
