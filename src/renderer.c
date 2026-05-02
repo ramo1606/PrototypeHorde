@@ -1,5 +1,5 @@
 ﻿#include "renderer.h"
-#include "resource_manager.h"
+#include "resource.h"
 #include "raylib.h"
 #include "raymath.h"
 
@@ -23,7 +23,7 @@
  *  Lifecycle
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-void RENDERER_Init(Renderer* renderer)
+void RendererInit(Renderer* renderer)
 {
     assert(renderer);
     memset(renderer, 0, sizeof(*renderer));
@@ -44,8 +44,8 @@ void RENDERER_Init(Renderer* renderer)
      * Then get uniform locations for our custom params, and tell raylib
      * where matModel lives so it auto-sets it per DrawModel call.
      */
-    RESOURCE_Load(RES_SHADER_CEL);
-    renderer->celShader = RESOURCE_GetShader(RES_SHADER_CEL);
+    ResourceLoad(RES_SHADER_CEL);
+    renderer->celShader = ResourceGetShader(RES_SHADER_CEL);
 
     /* Tell raylib where the model matrix uniform is in our shader.
      * This makes raylib set matModel automatically before each draw. */
@@ -104,23 +104,25 @@ void RENDERER_Init(Renderer* renderer)
             renderer->shadowTex;
     }
 
-    TraceLog(LOG_INFO, "RENDERER: Initialized (max %d renderables)", MAX_RENDERABLES);
+    TraceLog(LOG_INFO, "Renderer: Initialized (max %d renderables)", MAX_RENDERABLES);
 }
 
-void RENDERER_Shutdown(Renderer* renderer)
+void RendererShutdown(Renderer* renderer)
 {
     assert(renderer);
 
-    /* Unload blob shadow resources */
+    /* Unload blob shadow resources.
+     * The shadow texture was assigned to shadowPlane.materials[0], so
+     * UnloadModel takes care of it — calling UnloadTexture separately
+     * would double-free. */
     UnloadModel(renderer->shadowPlane);
-    UnloadTexture(renderer->shadowTex);
 
     memset(renderer->renderables, 0, sizeof(renderer->renderables));
     renderer->renderableCount = 0;
-    TraceLog(LOG_INFO, "RENDERER: Shutdown");
+    TraceLog(LOG_INFO, "Renderer: Shutdown");
 }
 
-RenderHandle RENDERER_Register(Renderer* renderer, Model model, int materialID)
+RenderHandle RendererRegister(Renderer* renderer, Model model, int materialID)
 {
     assert(renderer);
 
@@ -141,7 +143,7 @@ RenderHandle RENDERER_Register(Renderer* renderer, Model model, int materialID)
             r->transformPrev = MatrixIdentity();
 
             /* Compute bounding sphere for frustum culling */
-            RENDERER_ComputeBoundingSphere(model,
+            RendererComputeBoundingSphere(model,
                 &r->boundingCenter,
                 &r->boundingRadius);
 
@@ -156,18 +158,18 @@ RenderHandle RENDERER_Register(Renderer* renderer, Model model, int materialID)
 
             renderer->renderableCount++;
 
-            TraceLog(LOG_DEBUG, "RENDERER: Registered handle %d (total: %d)",
+            TraceLog(LOG_DEBUG, "Renderer: Registered handle %d (total: %d)",
                 i, renderer->renderableCount);
             return i;
         }
     }
 
-    TraceLog(LOG_WARNING, "RENDERER: Pool full, cannot register (max %d)",
+    TraceLog(LOG_WARNING, "Renderer: Pool full, cannot register (max %d)",
         MAX_RENDERABLES);
     return RENDER_HANDLE_INVALID;
 }
 
-void RENDERER_Unregister(Renderer* renderer, RenderHandle handle)
+void RendererUnregister(Renderer* renderer, RenderHandle handle)
 {
     assert(renderer);
 
@@ -178,7 +180,7 @@ void RENDERER_Unregister(Renderer* renderer, RenderHandle handle)
     renderer->renderables[handle].active = false;
     renderer->renderableCount--;
 
-    TraceLog(LOG_DEBUG, "RENDERER: Unregistered handle %d (total: %d)",
+    TraceLog(LOG_DEBUG, "Renderer: Unregistered handle %d (total: %d)",
         handle, renderer->renderableCount);
 }
 
@@ -186,7 +188,7 @@ void RENDERER_Unregister(Renderer* renderer, RenderHandle handle)
  *  Transform Updates
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-void RENDERER_SetTransform(Renderer* renderer, RenderHandle handle, Matrix transform)
+void RendererSetTransform(Renderer* renderer, RenderHandle handle, Matrix transform)
 {
     assert(renderer);
     if (handle < 0 || handle >= MAX_RENDERABLES) return;
@@ -204,7 +206,7 @@ void RENDERER_SetTransform(Renderer* renderer, RenderHandle handle, Matrix trans
  * interpolate between them. If we copied curr→prev AFTER gameplay, prev
  * and curr would be identical and there'd be nothing to interpolate.
  */
-void RENDERER_PreUpdate(Renderer* renderer)
+void RendererPreUpdate(Renderer* renderer)
 {
     assert(renderer);
 
@@ -217,7 +219,7 @@ void RENDERER_PreUpdate(Renderer* renderer)
     }
 }
 
-void RENDERER_SetBlobShadow(Renderer* renderer, RenderHandle handle,
+void RendererSetBlobShadow(Renderer* renderer, RenderHandle handle,
     bool enabled, float radius)
 {
     assert(renderer);
@@ -238,7 +240,7 @@ void RENDERER_SetBlobShadow(Renderer* renderer, RenderHandle handle,
  *  and significantly cheaper.
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-static Matrix LerpMatrix(Matrix a, Matrix b, float t)
+static Matrix lerpMatrix(Matrix a, Matrix b, float t)
 {
     Matrix result;
     float* ra = (float*)&a;
@@ -263,7 +265,7 @@ static Matrix LerpMatrix(Matrix a, Matrix b, float t)
  *                 fragment shader.
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-static int CompareDrawEntries(const void* a, const void* b)
+static int compareDrawEntries(const void* a, const void* b)
 {
     const DrawEntry* ea = (const DrawEntry*)a;
     const DrawEntry* eb = (const DrawEntry*)b;
@@ -292,7 +294,7 @@ static int CompareDrawEntries(const void* a, const void* b)
  *  Task 1.3: Add frustum culling before adding to draw list.
  *  Task 1.4: Add material sorting of draw list after building it.
  * ═══════════════════════════════════════════════════════════════════════════ */
-void RENDERER_BuildDrawList(Renderer* renderer, float alpha)
+void RendererBuildDrawList(Renderer* renderer, float alpha)
 {
     assert(renderer);
 
@@ -318,7 +320,7 @@ void RENDERER_BuildDrawList(Renderer* renderer, float alpha)
         RENDERER_FAR_PLANE
     );
     Matrix viewProj = MatrixMultiply(view, proj);
-    RENDERER_ExtractFrustumPlanes(renderer->frustum, viewProj);
+    RendererExtractFrustumPlanes(renderer->frustum, viewProj);
 
     /* ── Build draw list with frustum culling ─────────────────────────── */
     for (int i = 0; i < MAX_RENDERABLES; i++)
@@ -328,7 +330,7 @@ void RENDERER_BuildDrawList(Renderer* renderer, float alpha)
         Renderable* r = &renderer->renderables[i];
 
         /* Interpolate transform between prev and curr */
-        Matrix interp = LerpMatrix(r->transformPrev, r->transformCurr, alpha);
+        Matrix interp = lerpMatrix(r->transformPrev, r->transformCurr, alpha);
 
         /*
          * Transform bounding sphere to world space:
@@ -350,7 +352,7 @@ void RENDERER_BuildDrawList(Renderer* renderer, float alpha)
         float worldRadius = r->boundingRadius * maxScale;
 
         /* Frustum test */
-        if (!RENDERER_IsSphereInFrustum(renderer->frustum, worldCenter, worldRadius))
+        if (!RendererIsSphereInFrustum(renderer->frustum, worldCenter, worldRadius))
         {
             renderer->statsCulled++;
             continue;
@@ -363,7 +365,8 @@ void RENDERER_BuildDrawList(Renderer* renderer, float alpha)
          /* Add to draw list with cached interpolated transform */
         DrawEntry* entry = &renderer->drawList[renderer->drawCount];
         entry->index = i;
-        entry->distSq = 0.0f; /* TODO Task 1.4: compute distance to camera */
+        entry->materialID = r->materialID;
+        entry->distSq = distSq;
         entry->transform = interp;
         renderer->drawCount++;
     }
@@ -372,7 +375,7 @@ void RENDERER_BuildDrawList(Renderer* renderer, float alpha)
     if (renderer->drawCount > 1)
     {
         qsort(renderer->drawList, (size_t)renderer->drawCount,
-            sizeof(DrawEntry), CompareDrawEntries);
+            sizeof(DrawEntry), compareDrawEntries);
     }
 }
 
@@ -383,7 +386,7 @@ void RENDERER_BuildDrawList(Renderer* renderer, float alpha)
  *  MUST be called INSIDE an active BeginMode3D/EndMode3D block —
  *  the renderer does NOT manage the 3D context.
  * ═══════════════════════════════════════════════════════════════════════════ */
-void RENDERER_Draw3D(Renderer* renderer)
+void RendererDraw3D(Renderer* renderer)
 {
     assert(renderer);
 
@@ -472,19 +475,19 @@ void RENDERER_Draw3D(Renderer* renderer)
  *  Camera Control
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-void RENDERER_SetCamera(Renderer* renderer, Camera3D camera)
+void RendererSetCamera(Renderer* renderer, Camera3D camera)
 {
     assert(renderer);
     renderer->camera = camera;
 }
 
-Camera3D RENDERER_GetCamera(const Renderer* renderer)
+Camera3D RendererGetCamera(const Renderer* renderer)
 {
     assert(renderer);
     return renderer->camera;
 }
 
-void RENDERER_SetClearColor(Renderer* renderer, Color color)
+void RendererSetClearColor(Renderer* renderer, Color color)
 {
     assert(renderer);
     renderer->clearColor = color;
@@ -498,19 +501,19 @@ void RENDERER_SetClearColor(Renderer* renderer, Color color)
  *  Values are applied in Draw3D before the draw loop.
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-void RENDERER_SetLightDir(Renderer* renderer, Vector3 dir)
+void RendererSetLightDir(Renderer* renderer, Vector3 dir)
 {
     assert(renderer);
     renderer->lightDir = Vector3Normalize(dir);
 }
 
-void RENDERER_SetAmbient(Renderer* renderer, float ambient)
+void RendererSetAmbient(Renderer* renderer, float ambient)
 {
     assert(renderer);
     renderer->ambient = ambient;
 }
 
-void RENDERER_SetNumBands(Renderer* renderer, float numBands)
+void RendererSetNumBands(Renderer* renderer, float numBands)
 {
     assert(renderer);
     renderer->numBands = numBands;
@@ -524,7 +527,7 @@ void RENDERER_SetNumBands(Renderer* renderer, float numBands)
  *  the maximum distance from that center to any AABB corner.
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-void RENDERER_ComputeBoundingSphere(Model model,
+void RendererComputeBoundingSphere(Model model,
     Vector3* outCenter, float* outRadius)
 {
     assert(outCenter && outRadius);
@@ -580,7 +583,7 @@ void RENDERER_ComputeBoundingSphere(Model model,
   *  World-View-Projection Matrix" — Gil Gribb & Klaus Hartmann
   * ═══════════════════════════════════════════════════════════════════════════ */
 
-static void NormalizePlane(FrustumPlane* p)
+static void normalizePlane(FrustumPlane* p)
 {
     float len = sqrtf(p->a * p->a + p->b * p->b + p->c * p->c);
     if (len > 0.0f)
@@ -593,7 +596,7 @@ static void NormalizePlane(FrustumPlane* p)
     }
 }
 
-void RENDERER_ExtractFrustumPlanes(FrustumPlane planes[6], Matrix m)
+void RendererExtractFrustumPlanes(FrustumPlane planes[6], Matrix m)
 {
     /* Left:   row3 + row0 */
     planes[0] = (FrustumPlane){ m.m3 + m.m0, m.m7 + m.m4, m.m11 + m.m8,  m.m15 + m.m12 };
@@ -616,7 +619,7 @@ void RENDERER_ExtractFrustumPlanes(FrustumPlane planes[6], Matrix m)
      */
     for (int i = 0; i < 6; i++)
     {
-        NormalizePlane(&planes[i]);
+        normalizePlane(&planes[i]);
     }
 }
 
@@ -633,7 +636,7 @@ void RENDERER_ExtractFrustumPlanes(FrustumPlane planes[6], Matrix m)
  *  for visible spheres (no false negatives). This is the correct tradeoff
  *  for culling — drawing one extra is fine, missing one visible is not.
  * ═══════════════════════════════════════════════════════════════════════════ */
-bool RENDERER_IsSphereInFrustum(const FrustumPlane planes[6],
+bool RendererIsSphereInFrustum(const FrustumPlane planes[6],
     Vector3 center, float radius)
 {
     for (int i = 0; i < 6; i++)
@@ -656,7 +659,7 @@ bool RENDERER_IsSphereInFrustum(const FrustumPlane planes[6],
  *  Screen Projection
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-Vector2 RENDERER_WorldToScreen(const Renderer* renderer, Vector3 worldPos)
+Vector2 RendererWorldToScreen(const Renderer* renderer, Vector3 worldPos)
 {
     assert(renderer);
     return GetWorldToScreen(worldPos, renderer->camera);

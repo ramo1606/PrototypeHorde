@@ -1,4 +1,4 @@
-﻿#include "debug.h"
+#include "debug.h"
 
 #ifdef DEBUG_ENABLED
 
@@ -13,13 +13,11 @@
 
 #define FPS_HISTORY_SIZE 120    /* 2 seconds at 60fps */
 
-/* ── State ───────────────────────────────────────────────────────────────── */
-
 static bool visible = false;
 
-static struct 
+static struct
 {
-    const char* name;
+    const char*      name;
     DebugPanelDrawFn drawFn;
     DebugRender3DFn  render3DFn;
     bool             active;
@@ -27,29 +25,24 @@ static struct
 
 static DebugPerfStats perf;
 
-/* FPS graph history */
 static float fpsHistory[FPS_HISTORY_SIZE];
 static int   fpsIndex = 0;
 
-/* ═══════════════════════════════════════════════════════════════════════════
- *  FPS Graph
- * ═══════════════════════════════════════════════════════════════════════════ */
+/* ── FPS Graph ───────────────────────────────────────────────────────────── */
 
-static void DrawFPSGraph(int x, int y, int w, int h)
+static void drawFPSGraph(int x, int y, int w, int h)
 {
     DrawRectangle(x, y, w, h, (Color) { 0, 0, 0, 160 });
     DrawRectangleLines(x, y, w, h, (Color) { 80, 80, 80, 200 });
 
-    /* Target line */
     float targetRatio = (float)RENDER_FPS / (float)(RENDER_FPS + 20);
     int targetY = y + h - (int)(targetRatio * h);
     DrawLine(x, targetY, x + w, targetY, (Color) { 100, 100, 100, 150 });
 
-    /* Bars */
     float barW = (float)w / FPS_HISTORY_SIZE;
     float maxFps = (float)(RENDER_FPS + 20);
 
-    for (int i = 0; i < FPS_HISTORY_SIZE; i++) 
+    for (int i = 0; i < FPS_HISTORY_SIZE; i++)
     {
         int idx = (fpsIndex + i) % FPS_HISTORY_SIZE;
         float fps = fpsHistory[idx];
@@ -63,19 +56,17 @@ static void DrawFPSGraph(int x, int y, int w, int h)
         int barY = y + h - barH;
 
         Color color;
-        if (fps >= RENDER_FPS * 0.95f)     color = GREEN;
+        if (fps >= RENDER_FPS * 0.95f)      color = GREEN;
         else if (fps >= RENDER_FPS * 0.75f) color = YELLOW;
-        else                                  color = RED;
+        else                                color = RED;
 
         DrawRectangle(barX, barY, (int)barW + 1, barH, color);
     }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
- *  Built-in: Performance Panel (F2)
- * ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Built-in: Performance Panel (F2) ────────────────────────────────────── */
 
-static void DrawPerfPanel(float x, float y, float w, float h)
+static void drawPerfPanel(float x, float y, float w, float h)
 {
     GuiGroupBox((Rectangle) { x, y, w, h }, "Performance (F2)");
 
@@ -94,14 +85,12 @@ static void DrawPerfPanel(float x, float y, float w, float h)
             perf.ticksThisFrame, perf.alpha));
     row += 24;
 
-    /* FPS graph */
-    DrawFPSGraph((int)(x + pad), (int)row, (int)(w - 2 * pad), 50);
+    drawFPSGraph((int)(x + pad), (int)row, (int)(w - 2 * pad), 50);
     row += 56;
 
-    /* Arena bars */
-    size_t permUsed = perf.arenaPermanentTotal - perf.arenaPermanentFree;
-    size_t levelUsed = perf.arenaLevelTotal - perf.arenaLevelFree;
-    size_t scrUsed = perf.arenaScratchTotal - perf.arenaScratchFree;
+    size_t permUsed  = perf.arenaPermanentTotal - perf.arenaPermanentFree;
+    size_t levelUsed = perf.arenaLevelTotal     - perf.arenaLevelFree;
+    size_t scrUsed   = perf.arenaScratchTotal   - perf.arenaScratchFree;
     float bw = w - 2 * pad - 80;
 
     GuiLabel((Rectangle) { x + pad, row, w - 2 * pad, 14 }, "Permanent:");
@@ -109,7 +98,7 @@ static void DrawPerfPanel(float x, float y, float w, float h)
     float pv = (perf.arenaPermanentTotal > 0) ? (float)permUsed / (float)perf.arenaPermanentTotal : 0;
     GuiProgressBar((Rectangle) { x + pad, row, bw, 14 }, NULL,
         TextFormat("%zuK/%zuK", permUsed / 1024, perf.arenaPermanentTotal / 1024),
-        & pv, 0, 1);
+        &pv, 0, 1);
     row += 20;
 
     GuiLabel((Rectangle) { x + pad, row, w - 2 * pad, 14 }, "Level:");
@@ -117,7 +106,7 @@ static void DrawPerfPanel(float x, float y, float w, float h)
     float lv = (perf.arenaLevelTotal > 0) ? (float)levelUsed / (float)perf.arenaLevelTotal : 0;
     GuiProgressBar((Rectangle) { x + pad, row, bw, 14 }, NULL,
         TextFormat("%zuK/%zuK", levelUsed / 1024, perf.arenaLevelTotal / 1024),
-        & lv, 0, 1);
+        &lv, 0, 1);
     row += 20;
 
     GuiLabel((Rectangle) { x + pad, row, w - 2 * pad, 14 }, "Scratch:");
@@ -125,44 +114,31 @@ static void DrawPerfPanel(float x, float y, float w, float h)
     float sv = (perf.arenaScratchTotal > 0) ? (float)scrUsed / (float)perf.arenaScratchTotal : 0;
     GuiProgressBar((Rectangle) { x + pad, row, bw, 14 }, NULL,
         TextFormat("%zuK/%zuK", scrUsed / 1024, perf.arenaScratchTotal / 1024),
-        & sv, 0, 1);
+        &sv, 0, 1);
     row += 20;
-
-    /* Transition info */
-    /* (will be filled by game.c feeding the stats) */
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
- *  Built-in: Renderer Panel (F3)
- *
- *  Shows renderer pipeline stats: registered renderables, draw list size,
- *  objects drawn vs culled by frustum culling, and a visual bar showing
- *  the culling ratio.
- * ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Built-in: Renderer Panel (F3) ───────────────────────────────────────── */
 
-static void DrawRendererPanel(float x, float y, float w, float h)
+static void drawRendererPanel(float x, float y, float w, float h)
 {
     GuiGroupBox((Rectangle) { x, y, w, h }, "Renderer (F3)");
 
     float row = y + 20;
     float pad = 10;
 
-    /* Renderable pool usage */
     GuiLabel((Rectangle) { x + pad, row, w - 2 * pad, 18 },
         TextFormat("Renderables: %d / %d", perf.renderableCount, MAX_RENDERABLES));
     row += 22;
 
-    /* Draw list (what passed culling) */
     GuiLabel((Rectangle) { x + pad, row, w - 2 * pad, 18 },
         TextFormat("Draw list: %d", perf.drawCount));
     row += 22;
 
-    /* Drawn vs Culled */
     GuiLabel((Rectangle) { x + pad, row, w - 2 * pad, 18 },
         TextFormat("Drawn: %d  Culled: %d", perf.statsDrawn, perf.statsCulled));
     row += 22;
 
-    /* Culling efficiency bar */
     int total = perf.statsDrawn + perf.statsCulled;
     float cullRatio = (total > 0) ? (float)perf.statsCulled / (float)total : 0.0f;
 
@@ -175,14 +151,9 @@ static void DrawRendererPanel(float x, float y, float w, float h)
     row += 22;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
- *  Built-in: Physics Panel (F4)
- *
- *  Shows physics world stats: active colliders, pairs checked,
- *  contacts found, and trigger overlaps per tick.
- * ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Built-in: Physics Panel (F4) ────────────────────────────────────────── */
 
-static void DrawPhysicsPanel(float x, float y, float w, float h)
+static void drawPhysicsPanel(float x, float y, float w, float h)
 {
     GuiGroupBox((Rectangle) { x, y, w, h }, "Physics (F4)");
 
@@ -206,56 +177,51 @@ static void DrawPhysicsPanel(float x, float y, float w, float h)
     row += 22;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
- *  Public API
- * ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Public API ──────────────────────────────────────────────────────────── */
 
-void DEBUG_Init(void)
+void DebugInit(void)
 {
     memset(panels, 0, sizeof(panels));
     memset(fpsHistory, 0, sizeof(fpsHistory));
     fpsIndex = 0;
     visible = false;
 
-    DEBUG_RegisterPanel(0, "Performance", DrawPerfPanel);
-    DEBUG_RegisterPanel(1, "Renderer", DrawRendererPanel);
-    DEBUG_RegisterPanel(2, "Physics", DrawPhysicsPanel);
+    DebugRegisterPanel(0, "Performance", drawPerfPanel);
+    DebugRegisterPanel(1, "Renderer",    drawRendererPanel);
+    DebugRegisterPanel(2, "Physics",     drawPhysicsPanel);
     GuiSetStyle(DEFAULT, TEXT_SIZE, 13);
 }
 
-void DEBUG_Shutdown(void)
+void DebugShutdown(void)
 {
     /* Nothing to clean up */
 }
 
-void DEBUG_RegisterPanel(int slot, const char* name, DebugPanelDrawFn draw_fn)
+void DebugRegisterPanel(int slot, const char* name, DebugPanelDrawFn drawFn)
 {
     if (slot < 0 || slot >= DEBUG_MAX_PANELS) return;
-    panels[slot].name = name;
-    panels[slot].drawFn = draw_fn;
+    panels[slot].name   = name;
+    panels[slot].drawFn = drawFn;
     panels[slot].active = false;
 }
 
-void DEBUG_Register3D(int slot, DebugRender3DFn render_fn)
+void DebugRegister3D(int slot, DebugRender3DFn renderFn)
 {
     if (slot < 0 || slot >= DEBUG_MAX_PANELS) return;
-    panels[slot].render3DFn = render_fn;
+    panels[slot].render3DFn = renderFn;
 }
 
-void DEBUG_Update(Game* game)
+void DebugUpdate(Game* game)
 {
     (void)game;
 
-    /* Toggle visibility */
     if (IsKeyPressed(KEY_F1)) visible = !visible;
 
-    /* Update FPS history */
     fpsHistory[fpsIndex] = (float)GetFPS();
     fpsIndex = (fpsIndex + 1) % FPS_HISTORY_SIZE;
 
     if (!visible) return;
 
-    /* Toggle individual panels: F2-F7 */
     if (IsKeyPressed(KEY_F2)) panels[0].active = !panels[0].active;
     if (IsKeyPressed(KEY_F3)) panels[1].active = !panels[1].active;
     if (IsKeyPressed(KEY_F4)) panels[2].active = !panels[2].active;
@@ -264,66 +230,59 @@ void DEBUG_Update(Game* game)
     if (IsKeyPressed(KEY_F7)) panels[5].active = !panels[5].active;
 }
 
-void DEBUG_Render3D(Game* game)
+void DebugRender3D(Game* game)
 {
     if (!visible) return;
 
-    for (int i = 0; i < DEBUG_MAX_PANELS; i++) 
+    for (int i = 0; i < DEBUG_MAX_PANELS; i++)
     {
         if (panels[i].active && panels[i].render3DFn)
             panels[i].render3DFn(game);
     }
 }
 
-void DEBUG_Render(Game* game)
+void DebugRender(Game* game)
 {
     (void)game;
 
-    if (!visible) 
+    if (!visible)
     {
         DrawText("F1: Debug", GetScreenWidth() - 90, 10, 14,
-            (Color) {
-            100, 100, 100, 150
-        });
+            (Color) { 100, 100, 100, 150 });
         return;
     }
 
-    /* Hint bar */
     DrawRectangle(0, 0, GetScreenWidth(), 18, (Color) { 0, 0, 0, 160 });
     DrawText("DEBUG | F1 hide | F2-F7 panels", 10, 2, 14, GREEN);
 
-    /* Level & transition info on the hint bar */
     LevelManager* mgr = &((Game*)game)->levelMgr;
-    Level* active = LEVEL_MGR_GetActiveLevel(mgr);
+    Level* active = LevelManagerGetActiveLevel(mgr);
     const char* levelName = active ? active->name : "(none)";
 
-    if (LEVEL_MGR_IsTransitioning(mgr)) 
+    if (LevelManagerIsTransitioning(mgr))
     {
         DrawText(TextFormat("Level: %s | Transition: %s %.0f%%",
-            levelName, LEVEL_MGR_GetStateName(mgr),
-            LEVEL_MGR_GetProgress(mgr) * 100.0f),
+            levelName, LevelManagerGetStateName(mgr),
+            LevelManagerGetProgress(mgr) * 100.0f),
             300, 2, 14, ORANGE);
     }
-    else 
+    else
     {
         DrawText(TextFormat("Level: %s", levelName), 300, 2, 14, YELLOW);
     }
 
-    /* Draw active panels in a row */
     float px = 10, py = 25;
     float pw = 280, ph = 310;
 
-    for (int i = 0; i < DEBUG_MAX_PANELS; i++) 
+    for (int i = 0; i < DEBUG_MAX_PANELS; i++)
     {
-        if (panels[i].active && panels[i].drawFn) 
+        if (panels[i].active && panels[i].drawFn)
         {
             DrawRectangle((int)px, (int)py, (int)pw, (int)ph,
-                (Color) {
-                0, 0, 0, 180
-            });
+                (Color) { 0, 0, 0, 180 });
             panels[i].drawFn(px, py, pw, ph);
             px += pw + 10;
-            if (px + pw > (float)GetScreenWidth()) 
+            if (px + pw > (float)GetScreenWidth())
             {
                 px = 10;
                 py += ph + 10;
@@ -332,12 +291,12 @@ void DEBUG_Render(Game* game)
     }
 }
 
-void DEBUG_SetPerfStats(const DebugPerfStats* stats)
+void DebugSetPerfStats(const DebugPerfStats* stats)
 {
     perf = *stats;
 }
 
-bool DEBUG_IsVisible(void)
+bool DebugIsVisible(void)
 {
     return visible;
 }

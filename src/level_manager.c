@@ -1,111 +1,97 @@
-﻿#include "level_manager.h"
+#include "level_manager.h"
 #include "game.h"
-#include "memory.h"
+#include "arena.h"
 #include "raylib.h"
 #include <assert.h>
 
-/* ═══════════════════════════════════════════════════════════════════════════
- *  Built-in Transition Effects
- * ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Built-in Transition Effects ─────────────────────────────────────────── */
 
-void TRANSITION_Fade(float progress)
+void TransitionFade(float progress)
 {
     unsigned char alpha = (unsigned char)(progress * 255.0f);
     DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(),
-        (Color) {
-        0, 0, 0, alpha
-    });
+        (Color) { 0, 0, 0, alpha });
 }
 
-void TRANSITION_WipeLeft(float progress)
+void TransitionWipeLeft(float progress)
 {
     int w = (int)(progress * GetScreenWidth());
     DrawRectangle(0, 0, w, GetScreenHeight(), BLACK);
 }
 
-void TRANSITION_WipeRight(float progress)
+void TransitionWipeRight(float progress)
 {
     int sw = GetScreenWidth();
     int w = (int)(progress * sw);
     DrawRectangle(sw - w, 0, w, GetScreenHeight(), BLACK);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
- *  Level Swap (Internal)
- *
- *  Called at the peak of fade-out (screen fully covered). The player
- *  never sees the teardown/rebuild.
- * ═══════════════════════════════════════════════════════════════════════════ */
-
-static void ApplySwap(LevelManager* mgr, Game* game)
+/* ── Level Swap (internal) ───────────────────────────────────────────────── */
+/* Called at the peak of fade-out (screen fully covered). The player never
+ * sees the teardown/rebuild. */
+static void applySwap(LevelManager* mgr, Game* game)
 {
     Level* newLevel = mgr->pendingLevel;
     mgr->pendingLevel = NULL;
 
-    /* Shutdown current level */
     if (mgr->activeLevel && mgr->activeLevel->Shutdown)
         mgr->activeLevel->Shutdown(game);
 
-    /* Reset level arena — all level memory freed at once */
-    ARENA_Reset(&game->level);
+    /* All level memory freed at once */
+    ArenaReset(&game->level);
 
-    /* Activate new level */
     mgr->activeLevel = newLevel;
     if (newLevel && newLevel->Init)
         newLevel->Init(game);
 
-    TraceLog(LOG_INFO, "LEVEL_MGR: Swapped to '%s'",
+    TraceLog(LOG_INFO, "LevelManager: Swapped to '%s'",
         newLevel ? newLevel->name : "(none)");
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
- *  Lifecycle
- * ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Lifecycle ───────────────────────────────────────────────────────────── */
 
-void LEVEL_MGR_Init(LevelManager* mgr, Game* game, Level* initialLevel)
+void LevelManagerInit(LevelManager* mgr, Game* game, Level* initialLevel)
 {
     assert(mgr && game);
 
-    mgr->activeLevel = NULL;
+    mgr->activeLevel  = NULL;
     mgr->pendingLevel = NULL;
-    mgr->state = TRANSITION_IDLE;
-    mgr->effectOut = TRANSITION_DEFAULT_EFFECT_OUT;
-    mgr->effectIn = TRANSITION_DEFAULT_EFFECT_IN;
-    mgr->duration = TRANSITION_DEFAULT_DURATION;
-    mgr->progress = 0.0f;
+    mgr->state        = TRANSITION_IDLE;
+    mgr->effectOut    = TRANSITION_DEFAULT_EFFECT_OUT;
+    mgr->effectIn     = TRANSITION_DEFAULT_EFFECT_IN;
+    mgr->duration     = TRANSITION_DEFAULT_DURATION;
+    mgr->progress     = 0.0f;
 
-    /* Init the first level directly — no transition */
+    /* Init the first level directly — no transition. */
     mgr->activeLevel = initialLevel;
-    if (initialLevel && initialLevel->Init) 
+    if (initialLevel && initialLevel->Init)
     {
         initialLevel->Init(game);
     }
 
-    TraceLog(LOG_INFO, "LEVEL_MGR: Initialized with '%s'",
+    TraceLog(LOG_INFO, "LevelManager: Initialized with '%s'",
         initialLevel ? initialLevel->name : "(none)");
 }
 
-void LEVEL_MGR_Shutdown(LevelManager* mgr, Game* game)
+void LevelManagerShutdown(LevelManager* mgr, Game* game)
 {
     assert(mgr && game);
 
-    if (mgr->activeLevel && mgr->activeLevel->Shutdown) 
+    if (mgr->activeLevel && mgr->activeLevel->Shutdown)
     {
         mgr->activeLevel->Shutdown(game);
     }
 
-    mgr->activeLevel = NULL;
+    mgr->activeLevel  = NULL;
     mgr->pendingLevel = NULL;
-    mgr->state = TRANSITION_IDLE;
+    mgr->state        = TRANSITION_IDLE;
 
-    TraceLog(LOG_INFO, "LEVEL_MGR: Shutdown");
+    TraceLog(LOG_INFO, "LevelManager: Shutdown");
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
- *  State Machine
- * ═══════════════════════════════════════════════════════════════════════════ */
+/* ── State Machine ───────────────────────────────────────────────────────── */
 
-void LEVEL_MGR_Update(LevelManager* mgr, Game* game, float dt)
+void LevelManagerUpdate(LevelManager* mgr, Game* game, float dt)
 {
     assert(mgr);
     if (mgr->state == TRANSITION_IDLE) return;
@@ -116,10 +102,10 @@ void LEVEL_MGR_Update(LevelManager* mgr, Game* game, float dt)
     {
     case TRANSITION_FADING_OUT:
         mgr->progress += speed * dt;
-        if (mgr->progress >= 1.0f) 
+        if (mgr->progress >= 1.0f)
         {
             mgr->progress = 1.0f;
-            ApplySwap(mgr, game);
+            applySwap(mgr, game);
             mgr->state = TRANSITION_FADING_IN;
         }
         break;
@@ -129,8 +115,8 @@ void LEVEL_MGR_Update(LevelManager* mgr, Game* game, float dt)
         if (mgr->progress <= 0.0f)
         {
             mgr->progress = 0.0f;
-            mgr->state = TRANSITION_IDLE;
-            TraceLog(LOG_INFO, "LEVEL_MGR: Transition complete");
+            mgr->state    = TRANSITION_IDLE;
+            TraceLog(LOG_INFO, "LevelManager: Transition complete");
         }
         break;
 
@@ -138,13 +124,10 @@ void LEVEL_MGR_Update(LevelManager* mgr, Game* game, float dt)
     }
 }
 
-void LEVEL_MGR_Render(const LevelManager* mgr)
+void LevelManagerRender(const LevelManager* mgr)
 {
     assert(mgr);
-    if (mgr->state == TRANSITION_IDLE)
-    {
-        return;
-    }
+    if (mgr->state == TRANSITION_IDLE) return;
 
     TransitionEffectFn effect;
     if (mgr->state == TRANSITION_FADING_IN && mgr->effectIn)
@@ -162,70 +145,66 @@ void LEVEL_MGR_Render(const LevelManager* mgr)
     }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
- *  Transition Control
- * ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Transition Control ──────────────────────────────────────────────────── */
 
-void LEVEL_MGR_TransitionTo(LevelManager* mgr, Level* level,
-    TransitionEffectFn effectOut,
-    TransitionEffectFn effectIn,
-    float duration)
+void LevelManagerTransitionTo(LevelManager* mgr, Level* level,
+                              TransitionEffectFn effectOut,
+                              TransitionEffectFn effectIn,
+                              float duration)
 {
     assert(mgr);
 
-    if (!level) 
+    if (!level)
     {
-        TraceLog(LOG_WARNING, "LEVEL_MGR: TransitionTo called with NULL level");
+        TraceLog(LOG_WARNING, "LevelManager: TransitionTo called with NULL level");
         return;
     }
-    if (mgr->state != TRANSITION_IDLE) 
+    if (mgr->state != TRANSITION_IDLE)
     {
-        TraceLog(LOG_WARNING, "LEVEL_MGR: Transition already in progress, ignoring");
+        TraceLog(LOG_WARNING, "LevelManager: Transition already in progress, ignoring");
         return;
     }
-    if (level == mgr->activeLevel) 
+    if (level == mgr->activeLevel)
     {
-        TraceLog(LOG_WARNING, "LEVEL_MGR: Already on '%s', ignoring", level->name);
+        TraceLog(LOG_WARNING, "LevelManager: Already on '%s', ignoring", level->name);
         return;
     }
 
     mgr->pendingLevel = level;
-    mgr->effectOut = effectOut ? effectOut : TRANSITION_DEFAULT_EFFECT_OUT;
-    mgr->effectIn = effectIn;
-    mgr->duration = (duration > 0.0f) ? duration : TRANSITION_DEFAULT_DURATION;
-    mgr->progress = 0.0f;
-    mgr->state = TRANSITION_FADING_OUT;
+    mgr->effectOut    = effectOut ? effectOut : TRANSITION_DEFAULT_EFFECT_OUT;
+    mgr->effectIn     = effectIn;
+    mgr->duration     = (duration > 0.0f) ? duration : TRANSITION_DEFAULT_DURATION;
+    mgr->progress     = 0.0f;
+    mgr->state        = TRANSITION_FADING_OUT;
 
-    TraceLog(LOG_INFO, "LEVEL_MGR: Transitioning to '%s' (%.2fs)",
+    TraceLog(LOG_INFO, "LevelManager: Transitioning to '%s' (%.2fs)",
         level->name, mgr->duration);
 }
 
-void LEVEL_MGR_SwitchTo(LevelManager* mgr, Level* level)
+void LevelManagerSwitchTo(LevelManager* mgr, Level* level)
 {
-	assert(mgr && level);
-    LEVEL_MGR_TransitionTo(mgr, level, NULL, NULL, 0.0f);
+    assert(mgr && level);
+    LevelManagerTransitionTo(mgr, level, NULL, NULL, 0.0f);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
- *  Queries
- * ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Queries ─────────────────────────────────────────────────────────────── */
 
-bool LEVEL_MGR_IsTransitioning(const LevelManager* mgr)
+bool LevelManagerIsTransitioning(const LevelManager* mgr)
 {
     assert(mgr);
     return mgr->state != TRANSITION_IDLE;
 }
 
-Level* LEVEL_MGR_GetActiveLevel(const LevelManager* mgr)
+Level* LevelManagerGetActiveLevel(const LevelManager* mgr)
 {
     assert(mgr);
     return mgr->activeLevel;
 }
 
-const char* LEVEL_MGR_GetStateName(const LevelManager* mgr)
+const char* LevelManagerGetStateName(const LevelManager* mgr)
 {
-	assert(mgr);
-    switch (mgr->state) 
+    assert(mgr);
+    switch (mgr->state)
     {
     case TRANSITION_IDLE:       return "IDLE";
     case TRANSITION_FADING_OUT: return "FADING_OUT";
@@ -234,19 +213,17 @@ const char* LEVEL_MGR_GetStateName(const LevelManager* mgr)
     }
 }
 
-float LEVEL_MGR_GetProgress(const LevelManager* mgr)
+float LevelManagerGetProgress(const LevelManager* mgr)
 {
-	assert(mgr);
+    assert(mgr);
     return mgr->progress;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
- *  Level Callbacks (delegated to active level)
- * ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Level Callbacks (delegated to active level) ─────────────────────────── */
 
-void LEVEL_MGR_ProcessInput(LevelManager* mgr, Game* game)
+void LevelManagerProcessInput(LevelManager* mgr, Game* game)
 {
-	assert(mgr && game);
+    assert(mgr && game);
 
     if (mgr->activeLevel && mgr->activeLevel->ProcessInput)
     {
@@ -254,9 +231,9 @@ void LEVEL_MGR_ProcessInput(LevelManager* mgr, Game* game)
     }
 }
 
-void LEVEL_MGR_UpdateLevel(LevelManager* mgr, Game* game, float dt)
+void LevelManagerUpdateLevel(LevelManager* mgr, Game* game, float dt)
 {
-	assert(mgr && game);
+    assert(mgr && game);
 
     if (mgr->activeLevel && mgr->activeLevel->Update)
     {
@@ -264,7 +241,7 @@ void LEVEL_MGR_UpdateLevel(LevelManager* mgr, Game* game, float dt)
     }
 }
 
-void LEVEL_MGR_Render3D(LevelManager* mgr, Game* game, float alpha)
+void LevelManagerRender3D(LevelManager* mgr, Game* game, float alpha)
 {
     assert(mgr && game);
 
@@ -274,7 +251,7 @@ void LEVEL_MGR_Render3D(LevelManager* mgr, Game* game, float alpha)
     }
 }
 
-void LEVEL_MGR_RenderHUD(LevelManager* mgr, Game* game, float alpha)
+void LevelManagerRenderHUD(LevelManager* mgr, Game* game, float alpha)
 {
     assert(mgr && game);
 

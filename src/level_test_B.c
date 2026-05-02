@@ -9,7 +9,7 @@
 #include "level_test_B.h"
 #include "level_test_A.h"
 #include "game.h"
-#include "memory.h"
+#include "arena.h"
 #include "config.h"
 #include "level_manager.h"
 #include "raylib.h"
@@ -44,8 +44,8 @@ static void ProcessInput(Game* game)
 {
     /* Use a wipe transition to show a different effect */
     if (IsKeyPressed(KEY_SPACE))
-        LEVEL_MGR_TransitionTo(&game->levelMgr, &LEVEL_TEST_A,
-            TRANSITION_WipeLeft, TRANSITION_WipeRight, 0.5f);
+        LevelManagerTransitionTo(&game->levelMgr, &LEVEL_TEST_A,
+            TransitionWipeLeft, TransitionWipeRight, 0.5f);
 }
 
 static void Update(Game* game, float dt)
@@ -64,9 +64,9 @@ static void Update(Game* game, float dt)
      * This is a temporary debug aid, NOT the final camera system (Task 1.6).
      * UpdateCamera reads mouse/keyboard input and moves the camera.
      */
-    Camera3D cam = RENDERER_GetCamera(&game->renderer);
+    Camera3D cam = RendererGetCamera(&game->renderer);
     UpdateCamera(&cam, CAMERA_FREE);
-    RENDERER_SetCamera(&game->renderer, cam);
+    RendererSetCamera(&game->renderer, cam);
 }
 
 static void Render3D(Game* game, float alpha)

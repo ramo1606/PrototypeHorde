@@ -1,4 +1,4 @@
-# Boxhead 3D — CLAUDE.md
+# Boxhead 3D — AGENTS.md
 
 Plan completo de proyecto. Referencia autoritativa para la arquitectura, fases, y tareas.
 

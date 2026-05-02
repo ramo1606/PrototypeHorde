@@ -1,15 +1,15 @@
-#include "resource_manager.h"
+#include "resource.h"
 #include <assert.h>
 #include <string.h>
 
-typedef struct 
+typedef struct
 {
-    ResourceID id;
+    ResourceID   id;
     ResourceType type;
-    const char* path;
+    const char*  path;
 } ResourceEntry;
 
-static const ResourceEntry resource_table[] = 
+static const ResourceEntry resourceTable[] =
 {
     { RES_MODEL_PLAYER,   RESTYPE_MODEL,   "assets/models/player.glb"      },
     { RES_MODEL_ZOMBIE,   RESTYPE_MODEL,   "assets/models/zombie.glb"      },
@@ -26,7 +26,7 @@ static const ResourceEntry resource_table[] =
     { RES_FONT_UI,        RESTYPE_FONT,    "assets/fonts/ui_font.ttf"      },
 };
 
-#define TABLE_COUNT (int)(sizeof(resource_table) / sizeof(resource_table[0]))
+#define TABLE_COUNT (int)(sizeof(resourceTable) / sizeof(resourceTable[0]))
 
 static Model   models[RES_COUNT];
 static Texture textures[RES_COUNT];
@@ -35,45 +35,45 @@ static Sound   sounds[RES_COUNT];
 static Font    fonts[RES_COUNT];
 static bool    loaded[RES_COUNT];
 
-static const ResourceEntry* FindEntry(ResourceID id)
+static const ResourceEntry* findEntry(ResourceID id)
 {
     for (int i = 0; i < TABLE_COUNT; i++)
     {
-        if (resource_table[i].id == id)
+        if (resourceTable[i].id == id)
         {
-            return &resource_table[i];
+            return &resourceTable[i];
         }
     }
     return NULL;
 }
 
-void RESOURCE_Init(void)
-{ 
+void ResourceInit(void)
+{
     memset(loaded, 0, sizeof(loaded));
 }
 
-void RESOURCE_Shutdown(void)
-{ 
+void ResourceShutdown(void)
+{
     for (int i = 0; i < RES_COUNT; i++)
     {
         if (loaded[i])
         {
-            RESOURCE_Unload((ResourceID)i);
+            ResourceUnload((ResourceID)i);
         }
     }
 }
 
-void RESOURCE_Load(ResourceID id)
+void ResourceLoad(ResourceID id)
 {
     if (loaded[id])
     {
         return;
     }
 
-    const ResourceEntry* e = FindEntry(id);
-    assert(e && "ResourceID missing from resource_table!");
+    const ResourceEntry* e = findEntry(id);
+    assert(e && "ResourceID missing from resourceTable!");
 
-    switch (e->type) 
+    switch (e->type)
     {
         case RESTYPE_MODEL:
             models[id] = LoadModel(e->path);
@@ -94,20 +94,20 @@ void RESOURCE_Load(ResourceID id)
     loaded[id] = true;
 }
 
-void RESOURCE_Unload(ResourceID id)
+void ResourceUnload(ResourceID id)
 {
     if (!loaded[id])
     {
         return;
-	}
+    }
 
-    const ResourceEntry* e = FindEntry(id);
-    if (!e) 
+    const ResourceEntry* e = findEntry(id);
+    if (!e)
     {
         return;
-	}
+    }
 
-    switch (e->type) 
+    switch (e->type)
     {
         case RESTYPE_MODEL:
             UnloadModel(models[id]);
@@ -128,53 +128,53 @@ void RESOURCE_Unload(ResourceID id)
     loaded[id] = false;
 }
 
-void RESOURCE_LoadGroup(const ResourceID* ids, int count) 
-{ 
-    for (int i = 0; i < count; i++)
-    {
-        RESOURCE_Load(ids[i]);
-    }
-}
-
-void RESOURCE_UnloadGroup(const ResourceID* ids, int count)
+void ResourceLoadGroup(const ResourceID* ids, int count)
 {
     for (int i = 0; i < count; i++)
     {
-        RESOURCE_Unload(ids[i]);
+        ResourceLoad(ids[i]);
     }
 }
 
-Model RESOURCE_GetModel(ResourceID id)
-{ 
+void ResourceUnloadGroup(const ResourceID* ids, int count)
+{
+    for (int i = 0; i < count; i++)
+    {
+        ResourceUnload(ids[i]);
+    }
+}
+
+Model ResourceGetModel(ResourceID id)
+{
     assert(loaded[id]);
     return models[id];
 }
 
-Texture RESOURCE_GetTexture(ResourceID id)
+Texture ResourceGetTexture(ResourceID id)
 {
     assert(loaded[id]);
     return textures[id];
 }
 
-Shader RESOURCE_GetShader(ResourceID id)
-{ 
+Shader ResourceGetShader(ResourceID id)
+{
     assert(loaded[id]);
     return shaders[id];
 }
 
-Sound RESOURCE_GetSound(ResourceID id)
+Sound ResourceGetSound(ResourceID id)
 {
     assert(loaded[id]);
     return sounds[id];
 }
 
-Font RESOURCE_GetFont(ResourceID id)
+Font ResourceGetFont(ResourceID id)
 {
     assert(loaded[id]);
     return fonts[id];
 }
 
-bool RESOURCE_IsLoaded(ResourceID id)
-{ 
+bool ResourceIsLoaded(ResourceID id)
+{
     return loaded[id];
 }

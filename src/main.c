@@ -14,14 +14,14 @@ int main(void)
         return -1;
     }
 
-    if (!GAME_Init(game, &LEVEL_TEST_A))
+    if (!GameInit(game, &LEVEL_TEST_A))
     {
         free(game);
         return -1;
     }
 
-    GAME_Run(game);
-    GAME_Shutdown(game);
+    GameRun(game);
+    GameShutdown(game);
 
     free(game);
 

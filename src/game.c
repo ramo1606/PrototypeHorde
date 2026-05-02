@@ -1,5 +1,6 @@
 ﻿#include "game.h"
-#include "resource_manager.h"
+#include "arena.h"
+#include "resource.h"
 #include "debug.h"
 #include "raylib.h"
 
@@ -10,11 +11,11 @@
  *  Debug Callbacks
  * ═══════════════════════════════════════════════════════════════════════════ */
  
-/* Wrapper so PHYS_WORLD_DebugDraw can be registered as a DebugRender3DFn */
+/* Wrapper so PhysicsDebugDraw can be registered as a DebugRender3DFn */
 #ifdef DEBUG_ENABLED
-static void PhysDebugDraw3D(Game* game)
+static void physDebugDraw3D(Game* game)
 {
-    PHYS_WORLD_DebugDraw(&game->physWorld);
+    PhysicsDebugDraw(&game->physWorld);
 }
 #endif
 
@@ -22,7 +23,7 @@ static void PhysDebugDraw3D(Game* game)
  *  Frametime Statistics
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-static void UpdateFrametimeStats(Game* game, float dtMs)
+static void updateFrametimeStats(Game* game, float dtMs)
 {
     game->frametimeMs = dtMs;
 
@@ -45,7 +46,7 @@ static void UpdateFrametimeStats(Game* game, float dtMs)
     }
 }
 
-static void FeedDebugStats(Game* game)
+static void feedDebugStats(Game* game)
 {
     DebugPerfStats stats = 
     {
@@ -57,11 +58,11 @@ static void FeedDebugStats(Game* game)
         .ticksThisFrame = game->updateCount,
         .alpha = game->alpha,
         .arenaPermanentTotal = game->permanent.arena.size,
-        .arenaPermanentFree = ARENA_GetFreeMemory(game->permanent),
+        .arenaPermanentFree = ArenaGetFreeMemory(game->permanent),
         .arenaLevelTotal = game->level.arena.size,
-        .arenaLevelFree = ARENA_GetFreeMemory(game->level),
+        .arenaLevelFree = ArenaGetFreeMemory(game->level),
         .arenaScratchTotal = game->scratch.arena.size,
-        .arenaScratchFree = ARENA_GetFreeMemory(game->scratch),
+        .arenaScratchFree = ArenaGetFreeMemory(game->scratch),
         .renderableCount = game->renderer.renderableCount,
         .drawCount = game->renderer.drawCount,
         .statsDrawn = game->renderer.statsDrawn,
@@ -71,28 +72,28 @@ static void FeedDebugStats(Game* game)
         .contactsFound = game->physWorld.statsContactsFound,
         .triggersFound = game->physWorld.statsTriggersFound,
     };
-    DEBUG_SetPerfStats(&stats);
+    DebugSetPerfStats(&stats);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
  *  Public API
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-bool GAME_Init(Game* game, Level* initialLevel)
+bool GameInit(Game* game, Level* initialLevel)
 {
     assert(game);
     memset(game, 0, sizeof(*game));
 
     /* Create memory arenas (rmem MemPools) */
-    game->permanent = ARENA_Create(ARENA_PERMANENT_SIZE);
-    game->level = ARENA_Create(ARENA_LEVEL_SIZE);
-    game->scratch = ARENA_Create(ARENA_SCRATCH_SIZE);
+    game->permanent = ArenaCreate(ARENA_PERMANENT_SIZE);
+    game->level = ArenaCreate(ARENA_LEVEL_SIZE);
+    game->scratch = ArenaCreate(ARENA_SCRATCH_SIZE);
 
     if (game->permanent.arena.mem == 0 ||
         game->level.arena.mem == 0 ||
         game->scratch.arena.mem == 0)
     {
-        TraceLog(LOG_ERROR, "GAME: Failed to create memory arenas");
+        TraceLog(LOG_ERROR, "Game: Failed to create memory arenas");
         return false;
     }
 
@@ -109,15 +110,15 @@ bool GAME_Init(Game* game, Level* initialLevel)
     InitAudioDevice();
 
     /* Subsystems */
-    RESOURCE_Init();
-    DEBUG_Init();
-    RENDERER_Init(&game->renderer);
-    GAME_CAMERA_Init(&game->camera);
-    PHYS_WORLD_Init(&game->physWorld);
-    LEVEL_MGR_Init(&game->levelMgr, game, initialLevel);
+    ResourceInit();
+    DebugInit();
+    RendererInit(&game->renderer);
+    CameraInit(&game->camera);
+    PhysicsInit(&game->physWorld);
+    LevelManagerInit(&game->levelMgr, game, initialLevel);
 
     /* Register physics debug draw (slot 2 = F4) */
-    DEBUG_Register3D(2, PhysDebugDraw3D);
+    DebugRegister3D(2, physDebugDraw3D);
 
     /* Timing */
     game->accumulator = 0.0f;
@@ -125,31 +126,31 @@ bool GAME_Init(Game* game, Level* initialLevel)
     game->frametimeResetTimer = 1.0;
     game->running = true;
 
-    TraceLog(LOG_INFO, "GAME: Initialized");
+    TraceLog(LOG_INFO, "Game: Initialized");
     return true;
 }
 
-void GAME_Shutdown(Game* game)
+void GameShutdown(Game* game)
 {
     assert(game);
 
-    LEVEL_MGR_Shutdown(&game->levelMgr, game);
-    RENDERER_Shutdown(&game->renderer);
-    DEBUG_Shutdown();
-    RESOURCE_Shutdown();
+    LevelManagerShutdown(&game->levelMgr, game);
+    RendererShutdown(&game->renderer);
+    DebugShutdown();
+    ResourceShutdown();
 
     CloseAudioDevice();
     CloseWindow();
 
-    ARENA_Destroy(&game->scratch);
-    ARENA_Destroy(&game->level);
-    ARENA_Destroy(&game->permanent);
+    ArenaDestroy(&game->scratch);
+    ArenaDestroy(&game->level);
+    ArenaDestroy(&game->permanent);
 
     game->running = false;
-    TraceLog(LOG_INFO, "GAME: Shutdown complete");
+    TraceLog(LOG_INFO, "Game: Shutdown complete");
 }
 
-void GAME_Run(Game* game)
+void GameRun(Game* game)
 {
     assert(game);
 
@@ -164,10 +165,10 @@ void GAME_Run(Game* game)
             frameTime = MAX_DELTA_TIME;
         }
 
-        UpdateFrametimeStats(game, frameTime * 1000.0f);
+        updateFrametimeStats(game, frameTime * 1000.0f);
 
         /* --- Transition state machine (runs every frame) -------------- */
-        LEVEL_MGR_Update(&game->levelMgr, game, frameTime);
+        LevelManagerUpdate(&game->levelMgr, game, frameTime);
 
         /* --- Fixed-timestep accumulator ------------------------------- */
         game->accumulator += frameTime;
@@ -176,16 +177,16 @@ void GAME_Run(Game* game)
         while (game->accumulator >= FIXED_TIMESTEP)
         {
             /* Save previous transforms for interpolation */
-            RENDERER_PreUpdate(&game->renderer);
+            RendererPreUpdate(&game->renderer);
 
             /* Input and logic at fixed rate */
-            LEVEL_MGR_ProcessInput(&game->levelMgr, game);
-            LEVEL_MGR_UpdateLevel(&game->levelMgr, game, FIXED_TIMESTEP);
+            LevelManagerProcessInput(&game->levelMgr, game);
+            LevelManagerUpdateLevel(&game->levelMgr, game, FIXED_TIMESTEP);
 
             /* Physics: process triggers and passive collisions.
              * Gameplay already called MoveAndCollide during its Update,
              * so this handles remaining interactions (trigger overlaps). */
-            PHYS_WORLD_Update(&game->physWorld, NULL, NULL);
+            PhysicsUpdate(&game->physWorld, NULL, NULL);
             
             game->accumulator -= FIXED_TIMESTEP;
             game->updateCount++;
@@ -201,7 +202,7 @@ void GAME_Run(Game* game)
         game->alpha = game->accumulator / FIXED_TIMESTEP;
 
         /* --- Reset scratch arena (per-frame temporaries) -------------- */
-        ARENA_Reset(&game->scratch);
+        ArenaReset(&game->scratch);
 
         /* --- Camera update (per visual frame, not per tick) ----------- */
         /*
@@ -211,8 +212,8 @@ void GAME_Run(Game* game)
          * After updating, push the Camera3D to the renderer so
          * BuildDrawList and BeginMode3D use the latest camera.
          */
-        GAME_CAMERA_Update(&game->camera, frameTime);
-        RENDERER_SetCamera(&game->renderer, game->camera.camera);
+        CameraUpdate(&game->camera, frameTime);
+        RendererSetCamera(&game->renderer, game->camera.camera);
 
         /* --- Render --------------------------------------------------- */
         /*
@@ -223,9 +224,9 @@ void GAME_Run(Game* game)
          *   1. ClearBackground        — scene background
          *   2. BuildDrawList           — prepare renderer (culling, sorting)
          *   3. BeginMode3D             — enter 3D context
-         *      a. RENDERER_Draw3D      — registered renderables
+         *      a. RendererDraw3D      — registered renderables
          *      b. Level->Render3D      — level-specific 3D (grid, decor)
-         *      c. DEBUG_Render3D       — 3D gizmos (collider wireframes, etc.)
+         *      c. DebugRender3D        — 3D gizmos (collider wireframes, etc.)
          *   4. EndMode3D               — exit 3D context
          *   5. Level->RenderHUD        — level 2D overlay (health, ammo, etc.)
          *   6. DEBUG panels            — debug 2D overlay
@@ -236,26 +237,26 @@ void GAME_Run(Game* game)
             ClearBackground(game->renderer.clearColor);
 
             /* Prepare draw list (interpolation, culling, sorting) */
-            RENDERER_BuildDrawList(&game->renderer, game->alpha);
+            RendererBuildDrawList(&game->renderer, game->alpha);
 
             /* ── 3D phase ── */
             BeginMode3D(game->renderer.camera);
 
-                RENDERER_Draw3D(&game->renderer);
-                LEVEL_MGR_Render3D(&game->levelMgr, game, game->alpha);
-                DEBUG_Render3D(game);
+                RendererDraw3D(&game->renderer);
+                LevelManagerRender3D(&game->levelMgr, game, game->alpha);
+                DebugRender3D(game);
 
             EndMode3D();
 
             /* ── 2D phase ── */
-            LEVEL_MGR_RenderHUD(&game->levelMgr, game, game->alpha);
+            LevelManagerRenderHUD(&game->levelMgr, game, game->alpha);
 
-            DEBUG_Update(game);
-            FeedDebugStats(game);
-            DEBUG_Render(game);
+            DebugUpdate(game);
+            feedDebugStats(game);
+            DebugRender(game);
 
             /* Transition overlay (drawn last, covers everything) */
-            LEVEL_MGR_Render(&game->levelMgr);
+            LevelManagerRender(&game->levelMgr);
 
         EndDrawing();
     }

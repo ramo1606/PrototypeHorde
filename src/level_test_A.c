@@ -16,7 +16,7 @@
 #include "level_test_A.h"
 #include "level_test_B.h"
 #include "game.h"
-#include "memory.h"
+#include "arena.h"
 #include "config.h"
 #include "level_manager.h"
 #include "renderer.h"
@@ -68,16 +68,16 @@ static void Init(Game* game)
     data->rotation = 0.0f;
     data->rotationPrev = 0.0f;
     data->markerModel = LoadModelFromMesh(GenMeshSphere(0.2f, 8, 8));
-    data->markerHandle = RENDERER_Register(&game->renderer, data->markerModel, 0);
+    data->markerHandle = RendererRegister(&game->renderer, data->markerModel, 0);
 
     /* Static reference cube at origin */
     data->cubeModel = LoadModelFromMesh(GenMeshCube(1.0f, 1.0f, 1.0f));
-    data->cubeHandle = RENDERER_Register(&game->renderer, data->cubeModel, 0);
-    RENDERER_SetTransform(&game->renderer, data->cubeHandle,
+    data->cubeHandle = RendererRegister(&game->renderer, data->cubeModel, 0);
+    RendererSetTransform(&game->renderer, data->cubeHandle,
         MatrixTranslate(0.0f, 0.5f, 0.0f));
 
-    RENDERER_SetBlobShadow(&game->renderer, data->cubeHandle, true, 0.7f);
-    data->cubeColl = PHYS_WORLD_AddBox(&game->physWorld,
+    RendererSetBlobShadow(&game->renderer, data->cubeHandle, true, 0.7f);
+    data->cubeColl = PhysicsAddBox(&game->physWorld,
         (Vector3){ 0.0f, 0.5f, 0.0f },
         (Vector3){ 0.5f, 0.5f, 0.5f },
         COLLISION_LAYER_SCENERY, COLLISION_MASK_ALL, -1,
@@ -88,11 +88,11 @@ static void Init(Game* game)
     data->dummyYaw = 0.0f;
     data->dummySpeed = 5.0f;
     data->dummyModel = LoadModelFromMesh(GenMeshCube(0.1f, 0.1f, 0.1f));
-    data->dummyHandle = RENDERER_Register(&game->renderer, data->dummyModel, 0);
-    RENDERER_SetTransform(&game->renderer, data->dummyHandle,
+    data->dummyHandle = RendererRegister(&game->renderer, data->dummyModel, 0);
+    RendererSetTransform(&game->renderer, data->dummyHandle,
         MatrixTranslate(data->dummyPos.x, 0.5f, data->dummyPos.z));
-    RENDERER_SetBlobShadow(&game->renderer, data->dummyHandle, true, 0.5f);
-    data->dummyColl = PHYS_WORLD_AddCapsule(&game->physWorld,
+    RendererSetBlobShadow(&game->renderer, data->dummyHandle, true, 0.5f);
+    data->dummyColl = PhysicsAddCapsule(&game->physWorld,
         (Vector3){ data->dummyPos.x, 0.5f, data->dummyPos.z },
         0.3f, 0.2f,
         COLLISION_LAYER_PLAYER, COLLISION_LAYER_SCENERY | COLLISION_LAYER_ENEMY, 0,
@@ -109,12 +109,12 @@ static void Init(Game* game)
  
     for (int i = 0; i < 3; i++)
     {
-        data->obstacleHandles[i] = RENDERER_Register(&game->renderer, data->obstacleModel, 0);
-        RENDERER_SetTransform(&game->renderer, data->obstacleHandles[i],
+        data->obstacleHandles[i] = RendererRegister(&game->renderer, data->obstacleModel, 0);
+        RendererSetTransform(&game->renderer, data->obstacleHandles[i],
             MatrixTranslate(obstaclePositions[i].x, obstaclePositions[i].y, obstaclePositions[i].z));
-        RENDERER_SetBlobShadow(&game->renderer, data->obstacleHandles[i], true, 1.2f);
+        RendererSetBlobShadow(&game->renderer, data->obstacleHandles[i], true, 1.2f);
  
-        data->obstacleColl[i] = PHYS_WORLD_AddBox(&game->physWorld,
+        data->obstacleColl[i] = PhysicsAddBox(&game->physWorld,
             obstaclePositions[i],
             (Vector3){ 1.0f, 0.5f, 0.5f },
             COLLISION_LAYER_SCENERY, COLLISION_MASK_ALL, -1,
@@ -122,12 +122,12 @@ static void Init(Game* game)
     }
 
     /* Camera starts looking at the dummy */
-    GAME_CAMERA_SetTarget(&game->camera, data->dummyPos);
+    CameraSetTarget(&game->camera, data->dummyPos);
 
     /* Lock and hide cursor for mouse orbit */
     DisableCursor();
 
-    RENDERER_SetClearColor(&game->renderer, (Color) { 25, 40, 80, 255 });
+    RendererSetClearColor(&game->renderer, (Color) { 25, 40, 80, 255 });
 }
 
 static void Shutdown(Game* game)
@@ -137,17 +137,17 @@ static void Shutdown(Game* game)
     if (data)
     {
         /* Remove colliders */
-        PHYS_WORLD_Remove(&game->physWorld, data->dummyColl);
-        PHYS_WORLD_Remove(&game->physWorld, data->cubeColl);
+        PhysicsRemove(&game->physWorld, data->dummyColl);
+        PhysicsRemove(&game->physWorld, data->cubeColl);
         for (int i = 0; i < 3; i++)
-            PHYS_WORLD_Remove(&game->physWorld, data->obstacleColl[i]);
+            PhysicsRemove(&game->physWorld, data->obstacleColl[i]);
 
         /* Unregister renderables */
-        RENDERER_Unregister(&game->renderer, data->markerHandle);
-        RENDERER_Unregister(&game->renderer, data->cubeHandle);
-        RENDERER_Unregister(&game->renderer, data->dummyHandle);
+        RendererUnregister(&game->renderer, data->markerHandle);
+        RendererUnregister(&game->renderer, data->cubeHandle);
+        RendererUnregister(&game->renderer, data->dummyHandle);
         for (int i = 0; i < 3; i++)
-            RENDERER_Unregister(&game->renderer, data->obstacleHandles[i]);
+            RendererUnregister(&game->renderer, data->obstacleHandles[i]);
 
         UnloadModel(data->markerModel);
         UnloadModel(data->cubeModel);
@@ -166,14 +166,14 @@ static void ProcessInput(Game* game)
     if (IsKeyPressed(KEY_SPACE))
     {
         EnableCursor();
-        LEVEL_MGR_SwitchTo(&game->levelMgr, &LEVEL_TEST_B);
+        LevelManagerSwitchTo(&game->levelMgr, &LEVEL_TEST_B);
     }
 
     /* Toggle AIM mode with right mouse button */
     if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))
     {
         CameraMode current = game->camera.mode;
-        GAME_CAMERA_SetMode(&game->camera,
+        CameraSetMode(&game->camera,
             current == CAMERA_MODE_FOLLOW ? CAMERA_MODE_AIM : CAMERA_MODE_FOLLOW);
     }
 }
@@ -193,12 +193,12 @@ static void Update(Game* game, float dt)
     }
 
     float rad = data->rotation * DEG2RAD;
-    RENDERER_SetTransform(&game->renderer, data->markerHandle,
+    RendererSetTransform(&game->renderer, data->markerHandle,
         MatrixTranslate(cosf(rad) * 2.0f, 0.5f, sinf(rad) * 2.0f));
 
     /* ── Mouse orbit ──────────────────────────────────────────────────── */
     Vector2 mouseDelta = GetMouseDelta();
-    GAME_CAMERA_RotateByMouse(&game->camera, mouseDelta.x, mouseDelta.y);
+    CameraRotateByMouse(&game->camera, mouseDelta.x, mouseDelta.y);
 
     /* ── Dummy target movement (camera-relative) ──────────────────────── */
     float inputForward = 0.0f;
@@ -209,8 +209,8 @@ static void Update(Game* game, float dt)
     if (IsKeyDown(KEY_A)) inputRight -= 1.0f;
 
     /* Camera-relative directions (XZ only) */
-    Vector3 camFwd = GAME_CAMERA_GetForwardXZ(&game->camera);
-    Vector3 camRight = GAME_CAMERA_GetRightXZ(&game->camera);
+    Vector3 camFwd = CameraGetForwardXZ(&game->camera);
+    Vector3 camRight = CameraGetRightXZ(&game->camera);
 
     if (inputForward != 0.0f || inputRight != 0.0f)
     {
@@ -222,15 +222,17 @@ static void Update(Game* game, float dt)
         };
 
         /* Normalize to prevent diagonal speed boost */
-        float len = sqrtf(moveDir.x * moveDir.x + moveDir.z * moveDir.z);
-        if (len > 0.0f)
-        {
-            moveDir.x /= len;
-            moveDir.z /= len;
-        }
+        float len = Vector3Length(moveDir);
+        if (len > 0.0f) moveDir = Vector3Scale(moveDir, 1.0f / len);
 
-        data->dummyPos.x += moveDir.x * data->dummySpeed * dt;
-        data->dummyPos.z += moveDir.z * data->dummySpeed * dt;
+        /* Move with collision resolution */
+        Vector3 delta = Vector3Scale(moveDir, data->dummySpeed * dt);
+        Vector3 finalPos = PhysicsMoveAndCollide(&game->physWorld,
+            data->dummyColl, delta, COLLISION_LAYER_SCENERY, NULL);
+
+        /* Read back the resolved position (Y stays on ground) */
+        data->dummyPos.x = finalPos.x;
+        data->dummyPos.z = finalPos.z;
 
         /*
          * FOLLOW: rotate dummy to face movement direction.
@@ -252,19 +254,15 @@ static void Update(Game* game, float dt)
         data->dummyYaw = atan2f(camFwd.x, camFwd.z);
     }
 
-    /* Update dummy transform */
-    RENDERER_SetTransform(&game->renderer, data->dummyHandle,
+    /* Update dummy renderable transform (collider already updated by MoveAndCollide) */
+    RendererSetTransform(&game->renderer, data->dummyHandle,
         MatrixMultiply(
             MatrixRotateY(data->dummyYaw),
             MatrixTranslate(data->dummyPos.x, 0.5f, data->dummyPos.z)
         ));
 
-    /* Sync capsule collider with dummy position */
-    PHYS_WORLD_SetPosition(&game->physWorld, data->dummyColl,
-        (Vector3){ data->dummyPos.x, 0.5f, data->dummyPos.z });
-
-    /* Feed camera target (smoothing happens in GAME_CAMERA_Update per frame) */
-    GAME_CAMERA_SetTarget(&game->camera, data->dummyPos);
+    /* Feed camera target (smoothing happens in CameraUpdate per frame) */
+    CameraSetTarget(&game->camera, data->dummyPos);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
