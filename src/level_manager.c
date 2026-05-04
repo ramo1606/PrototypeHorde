@@ -1,6 +1,4 @@
 #include "level_manager.h"
-#include "game.h"
-#include "arena.h"
 #include "raylib.h"
 #include <assert.h>
 
@@ -27,22 +25,23 @@ void TransitionWipeRight(float progress)
 }
 
 /* ── Level Swap (internal) ───────────────────────────────────────────────── */
-/* Called at the peak of fade-out (screen fully covered). The player never
- * sees the teardown/rebuild. */
-static void applySwap(LevelManager* mgr, Game* game)
+/* Called at the peak of fade-out (screen fully covered): old level's
+ * Shutdown, then optional host onSwap (memory cleanup, etc.), then new
+ * level's Init. The player never sees the teardown frame. */
+static void applySwap(LevelManager* mgr)
 {
     Level* newLevel = mgr->pendingLevel;
     mgr->pendingLevel = NULL;
 
     if (mgr->activeLevel && mgr->activeLevel->Shutdown)
-        mgr->activeLevel->Shutdown(game);
+        mgr->activeLevel->Shutdown(mgr->user);
 
-    /* All level memory freed at once */
-    ArenaReset(&game->level);
+    if (mgr->onSwap)
+        mgr->onSwap(mgr->user);
 
     mgr->activeLevel = newLevel;
     if (newLevel && newLevel->Init)
-        newLevel->Init(game);
+        newLevel->Init(mgr->user);
 
     TraceLog(LOG_INFO, "LevelManager: Swapped to '%s'",
         newLevel ? newLevel->name : "(none)");
@@ -50,9 +49,9 @@ static void applySwap(LevelManager* mgr, Game* game)
 
 /* ── Lifecycle ───────────────────────────────────────────────────────────── */
 
-void LevelManagerInit(LevelManager* mgr, Game* game, Level* initialLevel)
+void LevelManagerInit(LevelManager* mgr, void* user, Level* initialLevel)
 {
-    assert(mgr && game);
+    assert(mgr);
 
     mgr->activeLevel  = NULL;
     mgr->pendingLevel = NULL;
@@ -61,25 +60,27 @@ void LevelManagerInit(LevelManager* mgr, Game* game, Level* initialLevel)
     mgr->effectIn     = TRANSITION_DEFAULT_EFFECT_IN;
     mgr->duration     = TRANSITION_DEFAULT_DURATION;
     mgr->progress     = 0.0f;
+    mgr->user         = user;
+    mgr->onSwap       = NULL;
 
     /* Init the first level directly — no transition. */
     mgr->activeLevel = initialLevel;
     if (initialLevel && initialLevel->Init)
     {
-        initialLevel->Init(game);
+        initialLevel->Init(user);
     }
 
     TraceLog(LOG_INFO, "LevelManager: Initialized with '%s'",
         initialLevel ? initialLevel->name : "(none)");
 }
 
-void LevelManagerShutdown(LevelManager* mgr, Game* game)
+void LevelManagerShutdown(LevelManager* mgr)
 {
-    assert(mgr && game);
+    assert(mgr);
 
     if (mgr->activeLevel && mgr->activeLevel->Shutdown)
     {
-        mgr->activeLevel->Shutdown(game);
+        mgr->activeLevel->Shutdown(mgr->user);
     }
 
     mgr->activeLevel  = NULL;
@@ -91,7 +92,7 @@ void LevelManagerShutdown(LevelManager* mgr, Game* game)
 
 /* ── State Machine ───────────────────────────────────────────────────────── */
 
-void LevelManagerUpdate(LevelManager* mgr, Game* game, float dt)
+void LevelManagerUpdate(LevelManager* mgr, float dt)
 {
     assert(mgr);
     if (mgr->state == TRANSITION_IDLE) return;
@@ -105,7 +106,7 @@ void LevelManagerUpdate(LevelManager* mgr, Game* game, float dt)
         if (mgr->progress >= 1.0f)
         {
             mgr->progress = 1.0f;
-            applySwap(mgr, game);
+            applySwap(mgr);
             mgr->state = TRANSITION_FADING_IN;
         }
         break;
@@ -221,42 +222,30 @@ float LevelManagerGetProgress(const LevelManager* mgr)
 
 /* ── Level Callbacks (delegated to active level) ─────────────────────────── */
 
-void LevelManagerProcessInput(LevelManager* mgr, Game* game)
+void LevelManagerProcessInput(LevelManager* mgr)
 {
-    assert(mgr && game);
-
+    assert(mgr);
     if (mgr->activeLevel && mgr->activeLevel->ProcessInput)
-    {
-        mgr->activeLevel->ProcessInput(game);
-    }
+        mgr->activeLevel->ProcessInput(mgr->user);
 }
 
-void LevelManagerUpdateLevel(LevelManager* mgr, Game* game, float dt)
+void LevelManagerUpdateLevel(LevelManager* mgr, float dt)
 {
-    assert(mgr && game);
-
+    assert(mgr);
     if (mgr->activeLevel && mgr->activeLevel->Update)
-    {
-        mgr->activeLevel->Update(game, dt);
-    }
+        mgr->activeLevel->Update(mgr->user, dt);
 }
 
-void LevelManagerRender3D(LevelManager* mgr, Game* game, float alpha)
+void LevelManagerRender3D(LevelManager* mgr, float alpha)
 {
-    assert(mgr && game);
-
+    assert(mgr);
     if (mgr->activeLevel && mgr->activeLevel->Render3D)
-    {
-        mgr->activeLevel->Render3D(game, alpha);
-    }
+        mgr->activeLevel->Render3D(mgr->user, alpha);
 }
 
-void LevelManagerRenderHUD(LevelManager* mgr, Game* game, float alpha)
+void LevelManagerRenderHUD(LevelManager* mgr, float alpha)
 {
-    assert(mgr && game);
-
+    assert(mgr);
     if (mgr->activeLevel && mgr->activeLevel->RenderHUD)
-    {
-        mgr->activeLevel->RenderHUD(game, alpha);
-    }
+        mgr->activeLevel->RenderHUD(mgr->user, alpha);
 }

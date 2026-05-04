@@ -1,17 +1,15 @@
-﻿#include "game.h"
+#include "game.h"
 #include "arena.h"
-#include "resource.h"
 #include "debug.h"
 #include "raylib.h"
+#include "raymath.h"
 
 #include <string.h>
 #include <assert.h>
+#include <math.h>
 
-/* ═══════════════════════════════════════════════════════════════════════════
- *  Debug Callbacks
- * ═══════════════════════════════════════════════════════════════════════════ */
- 
-/* Wrapper so PhysicsDebugDraw can be registered as a DebugRender3DFn */
+/* ── Debug Callbacks ─────────────────────────────────────────────────────── */
+
 #ifdef DEBUG_ENABLED
 static void physDebugDraw3D(Game* game)
 {
@@ -19,9 +17,120 @@ static void physDebugDraw3D(Game* game)
 }
 #endif
 
-/* ═══════════════════════════════════════════════════════════════════════════
- *  Frametime Statistics
- * ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Level Swap Callback ─────────────────────────────────────────────────── */
+/* Fires at the apex of fade-out, after the old level's Shutdown.
+ * Releases all level-arena memory at once (frees per-level allocations). */
+static void onLevelSwap(void* user)
+{
+    Game* game = (Game*)user;
+    ArenaReset(&game->level);
+}
+
+/* ── Cel Shader Setup (game-side glue) ───────────────────────────────────── */
+
+static void loadCelShader(Game* game)
+{
+    game->celShader = LoadShader("assets/shaders/cel.vs", "assets/shaders/cel.fs");
+
+    /* Tell raylib where the model matrix uniform lives so it auto-sets it
+     * before each DrawModel call. */
+    game->celShader.locs[SHADER_LOC_MATRIX_MODEL] =
+        GetShaderLocation(game->celShader, "matModel");
+
+    game->celLocLightDir = GetShaderLocation(game->celShader, "lightDir");
+    game->celLocAmbient  = GetShaderLocation(game->celShader, "ambient");
+    game->celLocNumBands = GetShaderLocation(game->celShader, "numBands");
+
+    game->lightDir = Vector3Normalize((Vector3){ 0.5f, 1.0f, 0.3f });
+    game->ambient  = 0.2f;
+    game->numBands = 3.0f;
+}
+
+/* Apply per-frame cel shader uniforms. Must run before RendererDraw3D
+ * inside BeginMode3D. */
+static void applyCelShaderUniforms(Game* game)
+{
+    float lightDirArr[3] = { game->lightDir.x, game->lightDir.y, game->lightDir.z };
+    SetShaderValue(game->celShader, game->celLocLightDir, lightDirArr, SHADER_UNIFORM_VEC3);
+    SetShaderValue(game->celShader, game->celLocAmbient,  &game->ambient,  SHADER_UNIFORM_FLOAT);
+    SetShaderValue(game->celShader, game->celLocNumBands, &game->numBands, SHADER_UNIFORM_FLOAT);
+}
+
+/* ── Blob Shadow Setup (game-side glue) ──────────────────────────────────── */
+
+#define SHADOW_TEX_SIZE   64
+#define SHADOW_MAX_HEIGHT 6.0f
+#define SHADOW_GROUND_Y   0.01f
+
+static void loadShadowResources(Game* game)
+{
+    Image img = GenImageColor(SHADOW_TEX_SIZE, SHADOW_TEX_SIZE, BLANK);
+    Color* pixels = (Color*)img.data;
+    float half = SHADOW_TEX_SIZE * 0.5f;
+
+    for (int y = 0; y < SHADOW_TEX_SIZE; y++)
+    {
+        for (int x = 0; x < SHADOW_TEX_SIZE; x++)
+        {
+            float dx = (x + 0.5f - half) / half;
+            float dy = (y + 0.5f - half) / half;
+            float dist = sqrtf(dx * dx + dy * dy);
+
+            float alpha = 1.0f - dist;
+            if (alpha < 0.0f) alpha = 0.0f;
+            alpha *= alpha;
+
+            unsigned char a = (unsigned char)(alpha * 160.0f);
+            pixels[y * SHADOW_TEX_SIZE + x] = (Color){ 0, 0, 0, a };
+        }
+    }
+
+    game->shadowTex = LoadTextureFromImage(img);
+    UnloadImage(img);
+
+    Mesh planeMesh = GenMeshPlane(1.0f, 1.0f, 1, 1);
+    game->shadowPlane = LoadModelFromMesh(planeMesh);
+    game->shadowPlane.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = game->shadowTex;
+}
+
+/* Walk the renderer's draw list (visible + interpolated) and draw a blob
+ * shadow plane under any entry tagged in game->blobOn. Call inside
+ * BeginMode3D, after RendererDraw3D. */
+static void drawBlobShadows(Game* game)
+{
+    BeginBlendMode(BLEND_ALPHA);
+
+    for (int d = 0; d < game->renderer.drawCount; d++)
+    {
+        DrawEntry* entry = &game->renderer.drawList[d];
+        int idx = entry->index;
+        if (!game->blobOn[idx]) continue;
+
+        float wx = entry->transform.m12;
+        float wy = entry->transform.m13;
+        float wz = entry->transform.m14;
+
+        float height = wy;
+        if (height < 0.0f) height = 0.0f;
+        if (height > SHADOW_MAX_HEIGHT) continue;
+
+        float heightRatio = height / SHADOW_MAX_HEIGHT;
+        float scale = game->blobRadius[idx] * 2.0f * (1.0f - heightRatio * 0.5f);
+        unsigned char alpha = (unsigned char)(255.0f * (1.0f - heightRatio));
+
+        game->shadowPlane.transform = MatrixMultiply(
+            MatrixScale(scale, 1.0f, scale),
+            MatrixTranslate(wx, SHADOW_GROUND_Y, wz)
+        );
+
+        DrawModel(game->shadowPlane, (Vector3) { 0, 0, 0 }, 1.0f,
+            (Color) { 255, 255, 255, alpha });
+    }
+
+    EndBlendMode();
+}
+
+/* ── Frametime Statistics ────────────────────────────────────────────────── */
 
 static void updateFrametimeStats(Game* game, float dtMs)
 {
@@ -33,7 +142,7 @@ static void updateFrametimeStats(Game* game, float dtMs)
     game->frametimeCount++;
 
     game->frametimeResetTimer -= (double)dtMs / 1000.0;
-    if (game->frametimeResetTimer <= 0.0) 
+    if (game->frametimeResetTimer <= 0.0)
     {
         game->frametimeAvg = (game->frametimeCount > 0)
             ? game->frametimeAccum / (float)game->frametimeCount
@@ -48,46 +157,43 @@ static void updateFrametimeStats(Game* game, float dtMs)
 
 static void feedDebugStats(Game* game)
 {
-    DebugPerfStats stats = 
+    DebugPerfStats stats =
     {
-        .frametimeMs = game->frametimeMs,
-        .frametimeAvg = game->frametimeAvg,
-        .frametimeMin = game->frametimeMin,
-        .frametimeMax = game->frametimeMax,
-        .fps = GetFPS(),
+        .frametimeMs   = game->frametimeMs,
+        .frametimeAvg  = game->frametimeAvg,
+        .frametimeMin  = game->frametimeMin,
+        .frametimeMax  = game->frametimeMax,
+        .fps           = GetFPS(),
         .ticksThisFrame = game->updateCount,
-        .alpha = game->alpha,
+        .alpha         = game->alpha,
         .arenaPermanentTotal = game->permanent.arena.size,
-        .arenaPermanentFree = ArenaGetFreeMemory(game->permanent),
-        .arenaLevelTotal = game->level.arena.size,
-        .arenaLevelFree = ArenaGetFreeMemory(game->level),
-        .arenaScratchTotal = game->scratch.arena.size,
-        .arenaScratchFree = ArenaGetFreeMemory(game->scratch),
+        .arenaPermanentFree  = ArenaGetFreeMemory(game->permanent),
+        .arenaLevelTotal     = game->level.arena.size,
+        .arenaLevelFree      = ArenaGetFreeMemory(game->level),
+        .arenaScratchTotal   = game->scratch.arena.size,
+        .arenaScratchFree    = ArenaGetFreeMemory(game->scratch),
         .renderableCount = game->renderer.renderableCount,
-        .drawCount = game->renderer.drawCount,
-        .statsDrawn = game->renderer.statsDrawn,
-        .statsCulled = game->renderer.statsCulled,
-        .colliderCount = game->physWorld.colliderCount,
-        .pairsChecked = game->physWorld.statsPairsChecked,
-        .contactsFound = game->physWorld.statsContactsFound,
-        .triggersFound = game->physWorld.statsTriggersFound,
+        .drawCount       = game->renderer.drawCount,
+        .statsDrawn      = game->renderer.statsDrawn,
+        .statsCulled     = game->renderer.statsCulled,
+        .colliderCount  = game->physWorld.colliderCount,
+        .pairsChecked   = game->physWorld.statsPairsChecked,
+        .contactsFound  = game->physWorld.statsContactsFound,
+        .triggersFound  = game->physWorld.statsTriggersFound,
     };
     DebugSetPerfStats(&stats);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
- *  Public API
- * ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Public API ──────────────────────────────────────────────────────────── */
 
 bool GameInit(Game* game, Level* initialLevel)
 {
     assert(game);
     memset(game, 0, sizeof(*game));
 
-    /* Create memory arenas (rmem MemPools) */
     game->permanent = ArenaCreate(ARENA_PERMANENT_SIZE);
-    game->level = ArenaCreate(ARENA_LEVEL_SIZE);
-    game->scratch = ArenaCreate(ARENA_SCRATCH_SIZE);
+    game->level     = ArenaCreate(ARENA_LEVEL_SIZE);
+    game->scratch   = ArenaCreate(ARENA_SCRATCH_SIZE);
 
     if (game->permanent.arena.mem == 0 ||
         game->level.arena.mem == 0 ||
@@ -97,7 +203,6 @@ bool GameInit(Game* game, Level* initialLevel)
         return false;
     }
 
-    /* Window and audio */
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Prototype Horde");
     if (!IsWindowReady())
     {
@@ -109,22 +214,26 @@ bool GameInit(Game* game, Level* initialLevel)
     SetTargetFPS(RENDER_FPS);
     InitAudioDevice();
 
-    /* Subsystems */
-    ResourceInit();
+    game->clearColor = (Color){ 20, 20, 40, 255 };
+
     DebugInit();
     RendererInit(&game->renderer);
     CameraInit(&game->camera);
     PhysicsInit(&game->physWorld);
-    LevelManagerInit(&game->levelMgr, game, initialLevel);
 
-    /* Register physics debug draw (slot 2 = F4) */
+    /* Game-side render glue (was inside renderer before refactor). */
+    loadCelShader(game);
+    loadShadowResources(game);
+
+    LevelManagerInit(&game->levelMgr, game, initialLevel);
+    game->levelMgr.onSwap = onLevelSwap;
+
     DebugRegister3D(2, physDebugDraw3D);
 
-    /* Timing */
-    game->accumulator = 0.0f;
-    game->frametimeMin = 9999.0f;
+    game->accumulator         = 0.0f;
+    game->frametimeMin        = 9999.0f;
     game->frametimeResetTimer = 1.0;
-    game->running = true;
+    game->running             = true;
 
     TraceLog(LOG_INFO, "Game: Initialized");
     return true;
@@ -134,10 +243,14 @@ void GameShutdown(Game* game)
 {
     assert(game);
 
-    LevelManagerShutdown(&game->levelMgr, game);
+    LevelManagerShutdown(&game->levelMgr);
+
+    /* shadowPlane owns shadowTex via its material; UnloadModel frees both. */
+    UnloadModel(game->shadowPlane);
+    UnloadShader(game->celShader);
+
     RendererShutdown(&game->renderer);
     DebugShutdown();
-    ResourceShutdown();
 
     CloseAudioDevice();
     CloseWindow();
@@ -154,110 +267,92 @@ void GameRun(Game* game)
 {
     assert(game);
 
-    while (!WindowShouldClose() && game->running) 
+    while (!WindowShouldClose() && game->running)
     {
-        /* --- Timing --------------------------------------------------- */
-
-        /* ── Frame timing with spiral-of-death protection ─────────── */
         float frameTime = GetFrameTime();
-        if (frameTime > MAX_DELTA_TIME)
-        {
-            frameTime = MAX_DELTA_TIME;
-        }
+        if (frameTime > MAX_DELTA_TIME) frameTime = MAX_DELTA_TIME;
 
         updateFrametimeStats(game, frameTime * 1000.0f);
 
-        /* --- Transition state machine (runs every frame) -------------- */
-        LevelManagerUpdate(&game->levelMgr, game, frameTime);
+        LevelManagerUpdate(&game->levelMgr, frameTime);
 
-        /* --- Fixed-timestep accumulator ------------------------------- */
         game->accumulator += frameTime;
         game->updateCount = 0;
 
         while (game->accumulator >= FIXED_TIMESTEP)
         {
-            /* Save previous transforms for interpolation */
             RendererPreUpdate(&game->renderer);
 
-            /* Input and logic at fixed rate */
-            LevelManagerProcessInput(&game->levelMgr, game);
-            LevelManagerUpdateLevel(&game->levelMgr, game, FIXED_TIMESTEP);
+            LevelManagerProcessInput(&game->levelMgr);
+            LevelManagerUpdateLevel(&game->levelMgr, FIXED_TIMESTEP);
 
-            /* Physics: process triggers and passive collisions.
-             * Gameplay already called MoveAndCollide during its Update,
-             * so this handles remaining interactions (trigger overlaps). */
             PhysicsUpdate(&game->physWorld, NULL, NULL);
-            
+
             game->accumulator -= FIXED_TIMESTEP;
             game->updateCount++;
 
             if (game->updateCount >= MAX_UPDATES_PER_FRAME)
             {
-                game->accumulator = 0.0f;  /* Drop remaining time */
+                game->accumulator = 0.0f;
                 break;
             }
         }
 
-        /* --- Interpolation alpha -------------------------------------- */
         game->alpha = game->accumulator / FIXED_TIMESTEP;
 
-        /* --- Reset scratch arena (per-frame temporaries) -------------- */
         ArenaReset(&game->scratch);
 
-        /* --- Camera update (per visual frame, not per tick) ----------- */
-        /*
-         * The camera smooths its position using frameTime (visual dt).
-         * Levels set the target position during their Update (fixed tick),
-         * so by this point the target is up to date.
-         * After updating, push the Camera3D to the renderer so
-         * BuildDrawList and BeginMode3D use the latest camera.
-         */
         CameraUpdate(&game->camera, frameTime);
-        RendererSetCamera(&game->renderer, game->camera.camera);
 
-        /* --- Render --------------------------------------------------- */
-        /*
-         * The game loop is the "director" of the render sequence.
-         * Each subsystem contributes its content, but the game loop
-         * controls the order and the BeginMode3D/EndMode3D boundaries.
-         *
-         *   1. ClearBackground        — scene background
-         *   2. BuildDrawList           — prepare renderer (culling, sorting)
-         *   3. BeginMode3D             — enter 3D context
-         *      a. RendererDraw3D      — registered renderables
-         *      b. Level->Render3D      — level-specific 3D (grid, decor)
-         *      c. DebugRender3D        — 3D gizmos (collider wireframes, etc.)
-         *   4. EndMode3D               — exit 3D context
-         *   5. Level->RenderHUD        — level 2D overlay (health, ammo, etc.)
-         *   6. DEBUG panels            — debug 2D overlay
-         *   7. Transition overlay      — drawn last, covers everything
-         */
         BeginDrawing();
 
-            ClearBackground(game->renderer.clearColor);
+            ClearBackground(game->clearColor);
 
-            /* Prepare draw list (interpolation, culling, sorting) */
-            RendererBuildDrawList(&game->renderer, game->alpha);
+            RendererBuildDrawList(&game->renderer, game->camera.camera, game->alpha);
 
-            /* ── 3D phase ── */
-            BeginMode3D(game->renderer.camera);
+            BeginMode3D(game->camera.camera);
 
+                applyCelShaderUniforms(game);
                 RendererDraw3D(&game->renderer);
-                LevelManagerRender3D(&game->levelMgr, game, game->alpha);
+                drawBlobShadows(game);
+                LevelManagerRender3D(&game->levelMgr, game->alpha);
                 DebugRender3D(game);
 
             EndMode3D();
 
-            /* ── 2D phase ── */
-            LevelManagerRenderHUD(&game->levelMgr, game, game->alpha);
+            LevelManagerRenderHUD(&game->levelMgr, game->alpha);
 
             DebugUpdate(game);
             feedDebugStats(game);
             DebugRender(game);
 
-            /* Transition overlay (drawn last, covers everything) */
             LevelManagerRender(&game->levelMgr);
 
         EndDrawing();
     }
+}
+
+/* ── Render Helpers ──────────────────────────────────────────────────────── */
+
+void GameApplyDefaultShader(Game* game, Model* model)
+{
+    assert(game && model);
+    for (int m = 0; m < model->materialCount; m++)
+    {
+        model->materials[m].shader = game->celShader;
+    }
+}
+
+void GameSetBlobShadow(Game* game, RenderHandle handle, bool enabled, float radius)
+{
+    assert(game);
+    if (handle < 0 || handle >= RENDERER_MAX_RENDERABLES) return;
+    game->blobOn[handle]     = enabled;
+    game->blobRadius[handle] = radius;
+}
+
+void GameSetClearColor(Game* game, Color color)
+{
+    assert(game);
+    game->clearColor = color;
 }

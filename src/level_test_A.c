@@ -18,6 +18,7 @@
 #include "game.h"
 #include "arena.h"
 #include "config.h"
+#include "layers.h"
 #include "level_manager.h"
 #include "renderer.h"
 #include "camera.h"
@@ -60,27 +61,30 @@ static TestAData* data = NULL;
  *  Lifecycle
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-static void Init(Game* game)
+static void Init(void* user)
 {
+    Game* game = (Game*)user;
     data = ARENA_ALLOC(&game->level, TestAData);
 
     /* Orbiting marker */
     data->rotation = 0.0f;
     data->rotationPrev = 0.0f;
     data->markerModel = LoadModelFromMesh(GenMeshSphere(0.2f, 8, 8));
+    GameApplyDefaultShader(game, &data->markerModel);
     data->markerHandle = RendererRegister(&game->renderer, data->markerModel, 0);
 
     /* Static reference cube at origin */
     data->cubeModel = LoadModelFromMesh(GenMeshCube(1.0f, 1.0f, 1.0f));
+    GameApplyDefaultShader(game, &data->cubeModel);
     data->cubeHandle = RendererRegister(&game->renderer, data->cubeModel, 0);
     RendererSetTransform(&game->renderer, data->cubeHandle,
         MatrixTranslate(0.0f, 0.5f, 0.0f));
 
-    RendererSetBlobShadow(&game->renderer, data->cubeHandle, true, 0.7f);
+    GameSetBlobShadow(game, data->cubeHandle, true, 0.7f);
     data->cubeColl = PhysicsAddBox(&game->physWorld,
         (Vector3){ 0.0f, 0.5f, 0.0f },
         (Vector3){ 0.5f, 0.5f, 0.5f },
-        COLLISION_LAYER_SCENERY, COLLISION_MASK_ALL, -1,
+        LAYER_SCENERY, MASK_ALL, -1,
         false, false);
 
     /* Dummy target */
@@ -88,18 +92,20 @@ static void Init(Game* game)
     data->dummyYaw = 0.0f;
     data->dummySpeed = 5.0f;
     data->dummyModel = LoadModelFromMesh(GenMeshCube(0.1f, 0.1f, 0.1f));
+    GameApplyDefaultShader(game, &data->dummyModel);
     data->dummyHandle = RendererRegister(&game->renderer, data->dummyModel, 0);
     RendererSetTransform(&game->renderer, data->dummyHandle,
         MatrixTranslate(data->dummyPos.x, 0.5f, data->dummyPos.z));
-    RendererSetBlobShadow(&game->renderer, data->dummyHandle, true, 0.5f);
+    GameSetBlobShadow(game, data->dummyHandle, true, 0.5f);
     data->dummyColl = PhysicsAddCapsule(&game->physWorld,
         (Vector3){ data->dummyPos.x, 0.5f, data->dummyPos.z },
         0.3f, 0.2f,
-        COLLISION_LAYER_PLAYER, COLLISION_LAYER_SCENERY | COLLISION_LAYER_ENEMY, 0,
+        LAYER_PLAYER, LAYER_SCENERY | LAYER_ENEMY, 0,
         true, false);
 
     /* Obstacle boxes — static scenery for collision testing */
     data->obstacleModel = LoadModelFromMesh(GenMeshCube(2.0f, 1.0f, 1.0f));
+    GameApplyDefaultShader(game, &data->obstacleModel);
  
     Vector3 obstaclePositions[3] = {
         {  4.0f, 0.5f,  0.0f },
@@ -112,12 +118,12 @@ static void Init(Game* game)
         data->obstacleHandles[i] = RendererRegister(&game->renderer, data->obstacleModel, 0);
         RendererSetTransform(&game->renderer, data->obstacleHandles[i],
             MatrixTranslate(obstaclePositions[i].x, obstaclePositions[i].y, obstaclePositions[i].z));
-        RendererSetBlobShadow(&game->renderer, data->obstacleHandles[i], true, 1.2f);
+        GameSetBlobShadow(game, data->obstacleHandles[i], true, 1.2f);
  
         data->obstacleColl[i] = PhysicsAddBox(&game->physWorld,
             obstaclePositions[i],
             (Vector3){ 1.0f, 0.5f, 0.5f },
-            COLLISION_LAYER_SCENERY, COLLISION_MASK_ALL, -1,
+            LAYER_SCENERY, MASK_ALL, -1,
             false, false);
     }
 
@@ -127,11 +133,12 @@ static void Init(Game* game)
     /* Lock and hide cursor for mouse orbit */
     DisableCursor();
 
-    RendererSetClearColor(&game->renderer, (Color) { 25, 40, 80, 255 });
+    GameSetClearColor(game, (Color) { 25, 40, 80, 255 });
 }
 
-static void Shutdown(Game* game)
+static void Shutdown(void* user)
 {
+    Game* game = (Game*)user;
     EnableCursor();
 
     if (data)
@@ -161,8 +168,9 @@ static void Shutdown(Game* game)
  *  Input
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-static void ProcessInput(Game* game)
+static void ProcessInput(void* user)
 {
+    Game* game = (Game*)user;
     if (IsKeyPressed(KEY_SPACE))
     {
         EnableCursor();
@@ -182,8 +190,9 @@ static void ProcessInput(Game* game)
  *  Update (fixed timestep)
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-static void Update(Game* game, float dt)
+static void Update(void* user, float dt)
 {
+    Game* game = (Game*)user;
     /* ── Orbiting marker ──────────────────────────────────────────────── */
     data->rotationPrev = data->rotation;
     data->rotation += 90.0f * dt;
@@ -228,7 +237,7 @@ static void Update(Game* game, float dt)
         /* Move with collision resolution */
         Vector3 delta = Vector3Scale(moveDir, data->dummySpeed * dt);
         Vector3 finalPos = PhysicsMoveAndCollide(&game->physWorld,
-            data->dummyColl, delta, COLLISION_LAYER_SCENERY, NULL);
+            data->dummyColl, delta, LAYER_SCENERY, NULL);
 
         /* Read back the resolved position (Y stays on ground) */
         data->dummyPos.x = finalPos.x;
@@ -269,8 +278,9 @@ static void Update(Game* game, float dt)
  *  Render3D
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-static void Render3D(Game* game, float alpha)
+static void Render3D(void* user, float alpha)
 {
+    Game* game = (Game*)user;
     (void)game;
     (void)alpha;
     DrawGrid(20, 1.0f);
@@ -299,8 +309,9 @@ static void Render3D(Game* game, float alpha)
  *  RenderHUD
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-static void RenderHUD(Game* game, float alpha)
+static void RenderHUD(void* user, float alpha)
 {
+    Game* game = (Game*)user;
     (void)alpha;
 
     const char* modeStr = (game->camera.mode == CAMERA_MODE_AIM) ? "AIM" : "FOLLOW";

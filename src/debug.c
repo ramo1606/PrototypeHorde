@@ -128,7 +128,7 @@ static void drawRendererPanel(float x, float y, float w, float h)
     float pad = 10;
 
     GuiLabel((Rectangle) { x + pad, row, w - 2 * pad, 18 },
-        TextFormat("Renderables: %d / %d", perf.renderableCount, MAX_RENDERABLES));
+        TextFormat("Renderables: %d / %d", perf.renderableCount, RENDERER_MAX_RENDERABLES));
     row += 22;
 
     GuiLabel((Rectangle) { x + pad, row, w - 2 * pad, 18 },

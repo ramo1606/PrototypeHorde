@@ -1,8 +1,17 @@
 #pragma once
 
-/* ---------------------------------------------------------------------------
- * Platform-dependent values
- * --------------------------------------------------------------------------- */
+/*
+ * config.h — Project-specific constants for Boxhead 3D.
+ *
+ * This file is the host project's config, NOT the kit's. Kit modules
+ * (renderer, physics, level_manager, arena) define their own defaults
+ * with #ifndef guards; the project overrides them here BEFORE the kit
+ * headers see them. game_types.h is the include point that ensures the
+ * order: it pulls config.h before any kit header.
+ */
+
+/* ── Platform-dependent values ───────────────────────────────────────────── */
+
 #ifdef PLATFORM_HANDHELD
 #define SCREEN_WIDTH        640
 #define SCREEN_HEIGHT       480
@@ -23,33 +32,30 @@
 #define MAX_PARTICLES       300
 #endif
 
- /* ---------------------------------------------------------------------------
-  * Game loop timing
-  * --------------------------------------------------------------------------- */
+/* ── Game loop timing ────────────────────────────────────────────────────── */
+
 #define UPDATE_RATE              60
 #define FIXED_TIMESTEP           (1.0f / (float)UPDATE_RATE)
 #define MAX_DELTA_TIME           0.25f       /* Spiral-of-death clamp */
 #define MAX_UPDATES_PER_FRAME    5
 
-  /* ---------------------------------------------------------------------------
-   * Memory pool sizes (bytes)
-   * --------------------------------------------------------------------------- */
+/* ── Memory pool sizes (bytes) ───────────────────────────────────────────── */
+
 #define ARENA_PERMANENT_SIZE    (2  * 1024 * 1024)
 #define ARENA_LEVEL_SIZE        (8  * 1024 * 1024)
 #define ARENA_SCRATCH_SIZE      (1  * 1024 * 1024)
 
-   /* ---------------------------------------------------------------------------
-    * Renderer / Physics pool limits
-    * --------------------------------------------------------------------------- */
-#define MAX_RENDERABLES         (MAX_ENEMIES + MAX_PROJECTILES + MAX_DEPLOYABLES \
-                                 + MAX_PICKUPS + 64)
-#define MAX_COLLIDERS           (MAX_RENDERABLES + 64)
+/* ── Kit module overrides ────────────────────────────────────────────────── */
+/* Sized from gameplay maxes. Defined here so kit modules see them via
+ * the #ifndef guards in renderer.h / physics.h. */
 
-    /* ---------------------------------------------------------------------------
-     * Gameplay constants
-     * --------------------------------------------------------------------------- */
+#define RENDERER_MAX_RENDERABLES (MAX_ENEMIES + MAX_PROJECTILES + MAX_DEPLOYABLES \
+                                  + MAX_PICKUPS + 64)
+#define MAX_COLLIDERS            (RENDERER_MAX_RENDERABLES + 64)
 
-     /* Player */
+/* ── Gameplay constants ──────────────────────────────────────────────────── */
+
+/* Player */
 #define PLAYER_SPEED            5.0f
 #define PLAYER_AIM_SPEED_MULT   0.6f
 #define PLAYER_JUMP_FORCE       8.0f

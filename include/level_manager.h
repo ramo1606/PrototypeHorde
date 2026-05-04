@@ -1,9 +1,75 @@
 #pragma once
 
-#include "level_manager_types.h"
+/*
+ * level_manager.h — Level vtable + transition state machine.
+ *
+ * DEPENDENCIES: raylib.h
+ * OVERRIDES: none
+ *
+ * Levels are structs of function pointers. The manager runs a small
+ * state machine to swap between them with a fullscreen visual effect.
+ *
+ * The manager carries a `void* user` set at init; every level callback
+ * receives it. This keeps the module agnostic of any host type (Game,
+ * App, Editor — whatever the embedder uses). The user pointer is also
+ * passed to the optional `onSwap` callback so the host can clean up
+ * (e.g. reset a memory arena) at the apex of a transition.
+ */
+
+#include "raylib.h"
 #include <stdbool.h>
 
-typedef struct Game Game;
+/* ── Level vtable ────────────────────────────────────────────────────────── */
+
+typedef void (*LevelInitFn)(void* user);
+typedef void (*LevelShutdownFn)(void* user);
+typedef void (*LevelInputFn)(void* user);
+typedef void (*LevelUpdateFn)(void* user, float dt);
+typedef void (*LevelRender3DFn)(void* user, float alpha);
+typedef void (*LevelRenderHUDFn)(void* user, float alpha);
+
+typedef struct Level
+{
+    const char* name;
+
+    LevelInitFn      Init;
+    LevelShutdownFn  Shutdown;
+    LevelInputFn     ProcessInput;
+    LevelUpdateFn    Update;
+    LevelRender3DFn  Render3D;
+    LevelRenderHUDFn RenderHUD;
+} Level;
+
+/* ── Transition state machine ────────────────────────────────────────────── */
+
+typedef enum
+{
+    TRANSITION_IDLE,
+    TRANSITION_FADING_OUT,
+    TRANSITION_FADING_IN,
+} TransitionState;
+
+/* A transition effect draws a fullscreen overlay based on progress [0,1]. */
+typedef void (*TransitionEffectFn)(float progress);
+
+/* Optional cleanup callback fired at the apex of fade-out, after the old
+ * level's Shutdown and before the new level's Init. */
+typedef void (*LevelSwapFn)(void* user);
+
+typedef struct LevelManager
+{
+    Level* activeLevel;
+    Level* pendingLevel;
+
+    TransitionState    state;
+    TransitionEffectFn effectOut;
+    TransitionEffectFn effectIn;
+    float              duration;
+    float              progress;       /* 0→1 (out), 1→0 (in) */
+
+    void*       user;     /* Passed to every level callback and to onSwap. */
+    LevelSwapFn onSwap;   /* Optional; may be NULL.                         */
+} LevelManager;
 
 /* ── Built-in Transition Effects ─────────────────────────────────────────── */
 
@@ -19,9 +85,9 @@ void TransitionWipeRight(float progress);
 
 /* ── Lifecycle ───────────────────────────────────────────────────────────── */
 
-void LevelManagerInit(LevelManager* mgr, Game* game, Level* initialLevel);
-void LevelManagerShutdown(LevelManager* mgr, Game* game);
-void LevelManagerUpdate(LevelManager* mgr, Game* game, float dt);
+void LevelManagerInit(LevelManager* mgr, void* user, Level* initialLevel);
+void LevelManagerShutdown(LevelManager* mgr);
+void LevelManagerUpdate(LevelManager* mgr, float dt);
 void LevelManagerRender(const LevelManager* mgr);
 
 /* ── Transition Control ──────────────────────────────────────────────────── */
@@ -41,9 +107,9 @@ Level*      LevelManagerGetActiveLevel(const LevelManager* mgr);
 const char* LevelManagerGetStateName(const LevelManager* mgr);
 float       LevelManagerGetProgress(const LevelManager* mgr);
 
-/* ── Level Callbacks (delegated to active level) ─────────────────────────── */
+/* ── Level Callbacks (delegated to active level using stored user) ───────── */
 
-void LevelManagerProcessInput(LevelManager* mgr, Game* game);
-void LevelManagerUpdateLevel(LevelManager* mgr, Game* game, float dt);
-void LevelManagerRender3D(LevelManager* mgr, Game* game, float alpha);
-void LevelManagerRenderHUD(LevelManager* mgr, Game* game, float alpha);
+void LevelManagerProcessInput(LevelManager* mgr);
+void LevelManagerUpdateLevel(LevelManager* mgr, float dt);
+void LevelManagerRender3D(LevelManager* mgr, float alpha);
+void LevelManagerRenderHUD(LevelManager* mgr, float alpha);

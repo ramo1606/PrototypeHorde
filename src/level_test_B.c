@@ -1,6 +1,6 @@
 /*******************************************************************************************
 *
-*   level_test_b.c � Test Level B: red background + rotating sphere
+*   level_test_b.c — Test Level B: red background + rotating sphere
 *
 *   Press SPACE to transition back to Level A (uses wipe effect).
 *
@@ -15,7 +15,7 @@
 #include "raylib.h"
 #include <math.h>
 
-typedef struct 
+typedef struct
 {
     float    angle;
     float    anglePrev;
@@ -24,54 +24,54 @@ typedef struct
 
 static TestBData* data = NULL;
 
-static void Init(Game* game)
+static void Init(void* user)
 {
+    Game* game = (Game*)user;
     data = ARENA_ALLOC(&game->level, TestBData);
     data->angle = 0.0f;
     data->anglePrev = 0.0f;
     data->camera = (Camera3D){
-        .position = (Vector3){ 5.0f, 3.0f, 5.0f },
-        .target = (Vector3){ 0.0f, 0.0f, 0.0f },
-        .up = (Vector3){ 0.0f, 1.0f, 0.0f },
-        .fovy = 60.0f,
+        .position   = (Vector3){ 5.0f, 3.0f, 5.0f },
+        .target     = (Vector3){ 0.0f, 0.0f, 0.0f },
+        .up         = (Vector3){ 0.0f, 1.0f, 0.0f },
+        .fovy       = 60.0f,
         .projection = CAMERA_PERSPECTIVE,
     };
 }
 
-static void Shutdown(Game* game) { (void)game; data = NULL; }
-
-static void ProcessInput(Game* game)
+static void Shutdown(void* user)
 {
+    (void)user;
+    data = NULL;
+}
+
+static void ProcessInput(void* user)
+{
+    Game* game = (Game*)user;
     /* Use a wipe transition to show a different effect */
     if (IsKeyPressed(KEY_SPACE))
         LevelManagerTransitionTo(&game->levelMgr, &LEVEL_TEST_A,
             TransitionWipeLeft, TransitionWipeRight, 0.5f);
 }
 
-static void Update(Game* game, float dt)
+static void Update(void* user, float dt)
 {
-    (void)game;
+    Game* game = (Game*)user;
     data->anglePrev = data->angle;
     data->angle += 120.0f * dt;
-    if (data->angle > 360.0f) 
+    if (data->angle > 360.0f)
     {
         data->angle -= 360.0f;
         data->anglePrev -= 360.0f;
     }
 
-    /*
-     * Free camera for testing � WASD + mouse.
-     * This is a temporary debug aid, NOT the final camera system (Task 1.6).
-     * UpdateCamera reads mouse/keyboard input and moves the camera.
-     */
-    Camera3D cam = RendererGetCamera(&game->renderer);
-    UpdateCamera(&cam, CAMERA_FREE);
-    RendererSetCamera(&game->renderer, cam);
+    /* Free camera for testing — WASD + mouse. Temporary debug aid. */
+    UpdateCamera(&game->camera.camera, CAMERA_FREE);
 }
 
-static void Render3D(Game* game, float alpha)
+static void Render3D(void* user, float alpha)
 {
-    (void)game;
+    (void)user;
     float a = data->anglePrev + (data->angle - data->anglePrev) * alpha;
 
     DrawSphere((Vector3) { 0, 1, 0 }, 0.8f, RED);
@@ -82,21 +82,22 @@ static void Render3D(Game* game, float alpha)
     DrawCube((Vector3) { cosf(rad) * 3, 0.3f, sinf(rad) * 3 }, 0.4f, 0.4f, 0.4f, ORANGE);
 }
 
-static void RenderHUD(Game* game, float alpha)
+static void RenderHUD(void* user, float alpha)
 {
+    (void)user;
     (void)alpha;
 
     DrawText("LEVEL B (red)", 10, SCREEN_HEIGHT - 60, 20, RAYWHITE);
     DrawText("Press SPACE -> Level A (wipe transition)", 10, SCREEN_HEIGHT - 35, 16, LIGHTGRAY);
 }
 
-Level LEVEL_TEST_B = 
+Level LEVEL_TEST_B =
 {
-    .name = "Test B",
-    .Init = Init,
-    .Shutdown = Shutdown,
+    .name         = "Test B",
+    .Init         = Init,
+    .Shutdown     = Shutdown,
     .ProcessInput = ProcessInput,
-    .Update = Update,
-    .Render3D = Render3D,
-    .RenderHUD = RenderHUD,
+    .Update       = Update,
+    .Render3D     = Render3D,
+    .RenderHUD    = RenderHUD,
 };
