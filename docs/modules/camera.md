@@ -1,61 +1,85 @@
-# camera
+# camera (project)
 
-> **Note:** this is the legacy third-person orbit camera. It will be
-> replaced in Task 1.6 (CLAUDE.md, Phase 1) with a fixed isometric camera
-> with low-angle perspective. The current refactor is mechanical only —
-> file split and rename — to keep the codebase consistent. The detailed
-> design of the iso camera lives in CLAUDE.md and will be documented here
-> when implemented.
+Fixed isometric camera with low-angle perspective. Follows a single
+target (or a centroid in multiplayer) with frame-rate independent
+exponential smoothing. No rotation, no aim mode, no mouse — the angles
+are constant for the whole game.
 
-Third-person orbit camera. The camera sits on a sphere around a target,
-controlled by mouse delta (yaw/pitch). It supports two modes (`FOLLOW` and
-`AIM`) with a smooth blend between them, frame-rate independent smoothing,
-and direction queries for camera-relative movement.
+This is **project code**, not a kit module. Other projects pick their
+own camera model.
 
 ## Types
 
-- `CameraMode` — enum: `CAMERA_MODE_FOLLOW`, `CAMERA_MODE_AIM`.
-- `CameraConfig` — POD with all tunable values (distances, lateral offsets,
-  heights, sensitivity, pitch limits, smoothing speed, mode transition
-  duration, look-at height).
-- `GameCamera` — full state. Holds the configured `CameraConfig`, the
-  current orbit angles, the target position, the smoothed position and
-  look-at, and a raylib `Camera3D` ready to feed to the renderer.
+- `CameraConfig` — POD with all tunables: angles, fovy, distance,
+  look-at lift, smoothing speed, multiplayer distance range and spread
+  factor.
+- `GameCamera` — runtime: the raylib `Camera3D`, the config, the
+  target position, the multiplayer spread, and the smoothed look-at.
 
 ## Public API
 
 | Function | Purpose |
 |---|---|
-| `CameraInit(*cam)` | Initialize with `DEFAULT_CONFIG` and a sane starting orbit. |
-| `CameraUpdate(*cam, dt)` | Advance mode transition, recompute desired pose, smooth toward it, write `Camera3D`. |
-| `CameraRotateByMouse(*cam, dx, dy)` | Apply mouse delta to yaw/pitch. Pitch is clamped. |
-| `CameraSetTarget(*cam, pos)` | Set the world position the camera orbits. |
-| `CameraGetForwardXZ(*cam)` | Forward direction projected onto XZ. For camera-relative movement. |
-| `CameraGetRightXZ(*cam)` | Right direction projected onto XZ. |
-| `CameraSetMode(*cam, mode)` | Switch mode; starts a smooth transition between configs. |
+| `CameraInit(*cam)` | Initialize with `DEFAULT_CONFIG` and a sane starting pose. |
+| `CameraUpdate(*cam, dt)` | Smooth toward target, recompute `Camera3D`. Call per visual frame. |
+| `CameraSetTarget(*cam, pos)` | Singleplayer: target = position. Resets spread to 0. |
+| `CameraSetGroupTarget(*cam, centroid, spread)` | Multiplayer: target = centroid; distance scales with spread. |
 | `CameraSetConfig(*cam, config)` | Replace the whole config. |
+
+## Math
+
+The camera offset from the look-at point is spherical:
+
+```
+x = distance * cos(elevation) * sin(azimuth)
+y = distance * sin(elevation)
+z = distance * cos(elevation) * cos(azimuth)
+```
+
+Defaults: elevation 30°, azimuth 45°, fovy 30°, distance 14. The fovy
+is intentionally narrow — a narrow perspective fovy with the camera
+far away approximates an orthographic iso look while keeping minor
+parallax cues.
 
 ## Smoothing
 
-`CameraUpdate` uses frame-rate independent exponential smoothing:
+Frame-rate independent exponential lerp on the look-at point:
 
 ```
-factor = 1 - exp(-smoothSpeed * dt)
-currentPos = lerp(currentPos, desiredPos, factor)
+t = 1 - exp(-smoothSpeed * dt)
+currentLookAt = lerp(currentLookAt, desiredLookAt, t)
 ```
 
-This converges at the same rate regardless of frame time. Higher
-`smoothSpeed` is snappier.
+The camera position is recomputed each frame as
+`currentLookAt + offset(angles, distance)`. Smoothing the look-at
+instead of the position avoids any drift in the orientation; the angle
+to the look-at stays fixed.
 
-## Mode transitions
+## Multiplayer
 
-Switching modes captures the current params (which may themselves be in the
-middle of a previous transition) as the start point and eases toward the
-new mode's params using `EaseSineInOut` over `transitionDuration` seconds.
+`CameraSetGroupTarget(centroid, spread)` switches behavior:
 
-## Why this will be rewritten
+- `targetPos = centroid` (caller computes from live players).
+- `spread > 0` triggers distance scaling:
+  ```
+  distance = clamp(minDistance + spread * spreadFactor,
+                   minDistance, maxDistance)
+  ```
 
-The Boxhead 3D pivot needs a fixed isometric camera that follows the player
-(or the centroid in multiplayer) without any free rotation. The orbit/aim
-distinction goes away. The new camera will be simpler and is documented
-in CLAUDE.md, Task 1.6.
+So when the group spreads out, the camera pulls back; when they
+clump, it stays in. `CameraSetTarget` resets spread to 0 to switch
+back to singleplayer behavior.
+
+## Why not orthographic
+
+A true orthographic projection would give the cleanest iso look, but
+it strips depth cues that help spatial reasoning during fast play.
+Narrow-fovy perspective at long distance is the common compromise:
+near-iso silhouettes, slight parallax for feedback.
+
+## Replacing the camera
+
+If a future project wants a different camera (top-down, follow-cam,
+free-orbit), the kit doesn't constrain it. The renderer takes the
+`Camera3D` as a parameter to `RendererBuildDrawList` and doesn't care
+where it came from.

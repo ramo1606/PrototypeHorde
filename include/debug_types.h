@@ -2,7 +2,9 @@
 
 #include <stddef.h>
 
-#define DEBUG_ENABLED    1
+/* DEBUG_ENABLED is set by the build system (CMake passes it on Debug builds).
+ * Don't force it here — that would re-enable debug in Release. */
+
 #define DEBUG_MAX_PANELS 6
 
 typedef struct Game Game;

@@ -1,42 +1,102 @@
-# level_manager
+# level_manager (kit)
 
-Owns the active `Level*` and runs a small state machine to transition
-between levels with a fullscreen visual effect (fade, wipe, etc.). The
-swap (Shutdown old, Reset arena, Init new) happens at the peak of the
-fade-out, so the player never sees the teardown frame.
+Owns the active `Level*` (vtable of function pointers) and runs a small
+state machine to swap between levels with a fullscreen visual effect.
+The swap (Shutdown old, optional `onSwap` cleanup, Init new) happens at
+the apex of the fade-out, so the player never sees the teardown frame.
+
+The module is host-agnostic: every level callback receives a `void*
+user` set at init. The host casts to whatever struct it owns
+(`Game`, `App`, `Editor`).
+
+Lives under `lib/` as part of the reusable kit.
+
+## Dependencies & overrides
+
+```
+DEPENDENCIES: raylib.h
+OVERRIDES: none
+```
 
 ## Types
 
+### Level vtable
+
+```c
+typedef void (*LevelInitFn)(void* user);
+typedef void (*LevelShutdownFn)(void* user);
+typedef void (*LevelInputFn)(void* user);
+typedef void (*LevelUpdateFn)(void* user, float dt);
+typedef void (*LevelRender3DFn)(void* user, float alpha);
+typedef void (*LevelRenderHUDFn)(void* user, float alpha);
+
+typedef struct Level {
+    const char* name;
+    LevelInitFn      Init;
+    LevelShutdownFn  Shutdown;
+    LevelInputFn     ProcessInput;
+    LevelUpdateFn    Update;
+    LevelRender3DFn  Render3D;
+    LevelRenderHUDFn RenderHUD;
+} Level;
+```
+
+Any field may be NULL; the manager skips unregistered callbacks.
+
+### Manager
+
 - `TransitionState` — `IDLE` / `FADING_OUT` / `FADING_IN`.
-- `TransitionEffectFn(progress)` — fullscreen overlay function. `progress`
-  is `[0, 1]`: 0 = invisible, 1 = fully covered.
-- `LevelManager` — owns active level, pending level, current state, the
-  two effect callbacks (out and in), duration, and progress.
+- `TransitionEffectFn(progress)` — fullscreen overlay function.
+  `progress` is `[0, 1]`: 0 invisible, 1 fully covered.
+- `LevelSwapFn(user)` — optional cleanup at apex of fade-out.
+- `LevelManager` — active level, pending level, state, effects,
+  duration, progress, `void* user`, `LevelSwapFn onSwap`.
 
 ## Public API
 
+### Lifecycle
+
 | Function | Purpose |
 |---|---|
-| `LevelManagerInit(*mgr, *game, initialLevel)` | Set up state and call the initial level's `Init` directly (no transition). |
-| `LevelManagerShutdown(*mgr, *game)` | Call the active level's `Shutdown`. Used at game exit. |
-| `LevelManagerUpdate(*mgr, *game, dt)` | Advance the transition state machine. Runs every visual frame. |
+| `LevelManagerInit(*mgr, user, initialLevel)` | Set up state, store `user`, call the initial level's `Init` directly (no transition). |
+| `LevelManagerShutdown(*mgr)` | Call the active level's `Shutdown(user)`. |
+| `LevelManagerUpdate(*mgr, dt)` | Advance the transition state machine. Once per visual frame. |
 | `LevelManagerRender(*mgr)` | Draw the transition overlay if a transition is in progress. Call last so it covers everything. |
+
+### Transition control
+
+| Function | Purpose |
+|---|---|
 | `LevelManagerTransitionTo(*mgr, level, effectOut, effectIn, duration)` | Start a transition with custom effects and duration. |
 | `LevelManagerSwitchTo(*mgr, level)` | Convenience wrapper using the default fade. |
+
+### Queries
+
+| Function | Purpose |
+|---|---|
 | `LevelManagerIsTransitioning(*mgr)` | True while not `IDLE`. |
-| `LevelManagerGetActiveLevel(*mgr)` | Current `Level*` (may be `NULL`). |
+| `LevelManagerGetActiveLevel(*mgr)` | Current `Level*`. |
 | `LevelManagerGetStateName(*mgr)` | Human-readable state, for debug. |
 | `LevelManagerGetProgress(*mgr)` | Current 0..1 progress, for debug. |
-| `LevelManagerProcessInput(*mgr, *game)` | Forward to active level's `ProcessInput`. |
-| `LevelManagerUpdateLevel(*mgr, *game, dt)` | Forward to active level's `Update`. |
-| `LevelManagerRender3D(*mgr, *game, alpha)` | Forward to active level's `Render3D`. |
-| `LevelManagerRenderHUD(*mgr, *game, alpha)` | Forward to active level's `RenderHUD`. |
+
+### Level callback delegation
+
+| Function | Purpose |
+|---|---|
+| `LevelManagerProcessInput(*mgr)` | Forward to active level's `ProcessInput(user)`. |
+| `LevelManagerUpdateLevel(*mgr, dt)` | Forward to active level's `Update(user, dt)`. |
+| `LevelManagerRender3D(*mgr, alpha)` | Forward to active level's `Render3D(user, alpha)`. |
+| `LevelManagerRenderHUD(*mgr, alpha)` | Forward to active level's `RenderHUD(user, alpha)`. |
+
+These wrappers exist so the host doesn't have to null-check or cast on
+every call site, and so future hooks (pause-on-transition, input
+blocking, stat collection) fit without touching every caller.
 
 ## Built-in transition effects
 
 | Function | Effect |
 |---|---|
-| `TransitionFade(progress)` | Black overlay with alpha = `progress * 255`. |
+| `TransitionFade(progress)` | Black overlay, alpha = `progress * 255`. |
 | `TransitionWipeLeft(progress)` | Black bar grows from left to right. |
 | `TransitionWipeRight(progress)` | Black bar grows from right to left. |
 
@@ -50,7 +110,7 @@ IDLE  ──TransitionTo()──►  FADING_OUT
                                 │
                                 │  progress hits 1.0
                                 ▼
-                           applySwap()  (Shutdown + ArenaReset + Init)
+                           applySwap()  (Shutdown + onSwap + Init)
                                 │
                                 ▼
                            FADING_IN
@@ -66,28 +126,57 @@ reading `progress` directly.
 
 ## The swap (`applySwap`)
 
-Internal helper called at the apex of the fade-out (screen fully covered):
+Internal helper called at the apex of fade-out (screen fully covered):
 
-1. Call old level's `Shutdown(game)` — releases GPU resources.
-2. `ArenaReset(&game->level)` — wipes all RAM allocated for the old level.
-3. Set `activeLevel = pendingLevel`.
-4. Call new level's `Init(game)` — sets up its state in the freshly-reset
+1. Old level's `Shutdown(user)` — releases GPU resources.
+2. `onSwap(user)` — host cleanup hook (typically resets a memory
+   arena). May be NULL.
+3. `activeLevel = pendingLevel`.
+4. New level's `Init(user)` — sets up state in the freshly cleared
    arena.
 
-Doing the swap during full coverage means the player never sees a frame
-with half-loaded assets or a black scene.
+Doing the swap during full coverage means the player never sees a
+frame with half-loaded assets or a black scene.
 
-## Why the manager forwards level callbacks
+## Defining a level (host-side)
 
-The game loop calls `LevelManagerProcessInput`, `LevelManagerUpdateLevel`,
-etc. instead of `mgr->activeLevel->ProcessInput(game)` directly. Two
-reasons:
+```c
+/* level_gameplay.c */
+static void Init(void* user) {
+    Game* game = (Game*)user;
+    /* allocate level data, register entities, ... */
+}
+static void Update(void* user, float dt) { ... }
+static void Render3D(void* user, float alpha) { ... }
+/* etc */
 
-1. **Null-safety** — the manager skips callbacks the level didn't set
-   without forcing every call site to null-check.
-2. **Future hooks** — pause-on-transition, input-blocking during fades,
-   stat collection, etc. fit naturally inside the forwarding wrappers
-   without touching every caller.
+Level LEVEL_GAMEPLAY = {
+    .name         = "Gameplay",
+    .Init         = Init,
+    .Shutdown     = Shutdown,
+    .ProcessInput = ProcessInput,
+    .Update       = Update,
+    .Render3D     = Render3D,
+    .RenderHUD    = RenderHUD,
+};
+```
+
+## Wiring (host-side)
+
+```c
+LevelManagerInit(&mgr, game, &LEVEL_FIRST);
+mgr.onSwap = onLevelSwap;   /* e.g. ArenaReset(&game->level) */
+
+/* per frame */
+LevelManagerUpdate(&mgr, frameTime);
+/* per tick */
+LevelManagerProcessInput(&mgr);
+LevelManagerUpdateLevel(&mgr, FIXED_TIMESTEP);
+/* per render */
+LevelManagerRender3D(&mgr, alpha);
+LevelManagerRenderHUD(&mgr, alpha);
+LevelManagerRender(&mgr);  /* transition overlay last */
+```
 
 ## Guardrails
 

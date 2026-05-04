@@ -5,12 +5,14 @@ project(Prototype-Horde C)
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
-# Define source and header files
+# Source files: kit modules (lib/) + game code (src/)
 file(GLOB SOURCES
+    lib/*.c
     src/*.c
 )
 
 file(GLOB HEADERS
+    lib/*.h
     include/*.h
     include/externals/*.h
     include/externals/rini/*.h
@@ -77,6 +79,7 @@ endif()
 FetchContent_MakeAvailable(raylib)
 
 # Add include directories
+include_directories(lib)
 include_directories(include)
 include_directories(include/externals)
 include_directories(include/externals/rini)
@@ -108,7 +111,7 @@ if(BUILD_FOR_RG35XX)
         message(FATAL_ERROR "EGL library not found at: ${EGL_LIBRARY}")
     endif()
     if(NOT EXISTS "${GLES3_LIBRARY}")
-        message(FATAL_ERROR "GLESv2 library not found at: ${GLES2_LIBRARY}")
+        message(FATAL_ERROR "GLESv2 library not found at: ${GLES3_LIBRARY}")
     endif()
     
     # Link libraries for RG35XX
@@ -122,9 +125,10 @@ if(BUILD_FOR_RG35XX)
     )
     
     # Add compile definitions for OpenGL ES 3.0
-    target_compile_definitions(${PROJECT_NAME} PRIVATE 
+    target_compile_definitions(${PROJECT_NAME} PRIVATE
         GRAPHICS_API_OPENGL_ES3
         PLATFORM_SDL
+        PLATFORM_HANDHELD
     )
     
     # Set output directory for RG35XX binary

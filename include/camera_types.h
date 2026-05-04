@@ -3,65 +3,54 @@
 #include "raylib.h"
 #include <stdbool.h>
 
-typedef enum
-{
-    CAMERA_MODE_FOLLOW,     /* Default orbit: behind and above              */
-    CAMERA_MODE_AIM,        /* Over-the-shoulder: closer, lateral offset    */
-} CameraMode;
+/* Isometric camera with low-angle perspective.
+ *
+ * Fixed elevation + azimuth — no rotation, no aim mode. The camera
+ * follows a target with frame-rate independent exponential smoothing.
+ * Multiplayer mode is centroid-aware (target = group centroid;
+ * distance scales with spread). The multiplayer fields are present
+ * but unused in singleplayer.
+ */
 
 typedef struct CameraConfig
 {
-    /* Orbit distances per mode */
-    float distFollow;
-    float distAim;
+    /* Fixed view angles (degrees). */
+    float elevationDeg;     /* Pitch downward; classic iso ≈ 30°.    */
+    float azimuthDeg;       /* Rotation around Y; classic iso = 45°. */
 
-    /* Lateral offset per mode (positive = camera shifts right of center) */
-    float lateralFollow;
-    float lateralAim;
+    /* Projection. */
+    float fovy;             /* Perspective field of view (degrees).  */
 
-    /* Vertical offsets */
-    float heightFollow;
-    float heightAim;
+    /* Single-target distance (singleplayer). */
+    float distance;
 
-    /* Orbit sensitivity */
-    float mouseSensitivity;     /* Degrees per pixel of mouse movement */
+    /* Look-at point lift above the target's feet. */
+    float lookAtHeight;
 
-    /* Pitch limits (degrees) */
-    float pitchMin;
-    float pitchMax;
+    /* Smoothing. Higher = snappier. Frame-rate independent. */
+    float smoothSpeed;
 
-    /* Smoothing */
-    float smoothSpeed;          /* Exponential smooth factor (higher = snappier) */
-    float transitionDuration;   /* Seconds for FOLLOW↔AIM mode blend */
-
-    /* Look-at offset */
-    float lookAtHeight;         /* Y offset on look-at point (chest height) */
+    /* Multiplayer: distance scales linearly with the group's spread.
+     * Unused while only a single target is set. */
+    float multiplayerMinDistance;
+    float multiplayerMaxDistance;
+    float multiplayerSpreadFactor;
 } CameraConfig;
 
 typedef struct GameCamera
 {
-    /* Output: raylib camera, ready for the renderer */
+    /* Output: raylib camera, pushed to RendererBuildDrawList. */
     Camera3D camera;
 
     CameraConfig config;
 
-    /* Orbit state (player-controlled) */
-    float yaw;                  /* radians */
-    float pitch;                /* radians */
+    /* Target tracking. In singleplayer: the player's world position.
+     * In multiplayer: centroid of live players. */
+    Vector3 targetPos;
 
-    CameraMode mode;
-    CameraMode prevMode;
+    /* Multiplayer spread (max pairwise distance). 0 in singleplayer. */
+    float spread;
 
-    Vector3 targetPos;          /* World position to orbit around */
-
-    /* Smoothed state */
-    Vector3 currentPos;
+    /* Smoothed look-at point (lerps toward targetPos + lookAtHeight). */
     Vector3 currentLookAt;
-
-    /* Mode transition */
-    bool  transitioning;
-    float transitionTimer;
-    float distFrom, distTo;
-    float lateralFrom, lateralTo;
-    float heightFrom, heightTo;
 } GameCamera;

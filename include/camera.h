@@ -2,21 +2,20 @@
 
 #include "camera_types.h"
 
-/*
- * NOTE: this is the legacy third-person orbit camera. It will be replaced
- * in Task 1.6 with a fixed isometric camera (see CLAUDE.md). For now we
- * keep the API working so the rest of the project compiles.
- */
-
+/* Initialize with sensible isometric defaults. */
 void CameraInit(GameCamera* cam);
+
+/* Per-frame update: smooth toward target, recompute Camera3D. */
 void CameraUpdate(GameCamera* cam, float dt);
 
-void CameraRotateByMouse(GameCamera* cam, float dx, float dy);
-
+/* Set the target position the camera follows. Call once per tick (or
+ * whenever the target moves). The smoothing happens in CameraUpdate. */
 void CameraSetTarget(GameCamera* cam, Vector3 pos);
 
-Vector3 CameraGetForwardXZ(const GameCamera* cam);
-Vector3 CameraGetRightXZ(const GameCamera* cam);
+/* Multiplayer: set centroid and spread together. The distance interpolates
+ * between multiplayerMinDistance and multiplayerMaxDistance based on
+ * spread * multiplayerSpreadFactor. */
+void CameraSetGroupTarget(GameCamera* cam, Vector3 centroid, float spread);
 
-void CameraSetMode(GameCamera* cam, CameraMode mode);
+/* Replace the whole config. */
 void CameraSetConfig(GameCamera* cam, CameraConfig config);

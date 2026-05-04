@@ -68,7 +68,12 @@ average frametimes hide.
 
 ## Release build
 
+`DEBUG_ENABLED` is defined by CMake only on Debug configurations
+(`target_compile_definitions(... $<$<CONFIG:Debug>:DEBUG_ENABLED>)`).
+The headers do **not** force-define it — that would re-enable the
+overlay in Release builds.
+
 When `DEBUG_ENABLED` is not defined, the header replaces every public
 function with a macro that expands to nothing (or `false` for
-`DebugIsVisible`). No code from `debug.c` is compiled. The game's call sites
-need no `#ifdef` guards — the cost is zero in release.
+`DebugIsVisible`). No code from `debug.c` is compiled. The game's call
+sites need no `#ifdef` guards — the cost is zero in release.

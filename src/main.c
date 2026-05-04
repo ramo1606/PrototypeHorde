@@ -1,19 +1,17 @@
 ﻿#include "game.h"
+#include "level_sandbox.h"
 #include <stdlib.h>
-
-/* Level declarations */
-extern Level LEVEL_TEST_A;
 
 int main(void)
 {
     Game* game = (Game*)malloc(sizeof(Game));
-    if (!game) 
+    if (!game)
     {
-		TraceLog(LOG_ERROR, "Failed to allocate memory for Game structure");
+        TraceLog(LOG_ERROR, "Failed to allocate memory for Game structure");
         return -1;
     }
 
-    if (!GameInit(game, &LEVEL_TEST_A))
+    if (!GameInit(game, &LEVEL_SANDBOX))
     {
         free(game);
         return -1;

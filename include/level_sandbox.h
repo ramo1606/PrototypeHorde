@@ -2,4 +2,4 @@
 
 #include "level_manager.h"
 
-extern Level LEVEL_TEST_B;
+extern Level LEVEL_SANDBOX;
