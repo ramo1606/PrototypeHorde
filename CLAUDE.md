@@ -1,14 +1,14 @@
 # CLAUDE.md — How I work and what I expect
 
-This file is loaded automatically by Claude Code when you open this
-repo. It defines my working style, code standards, and the AI/git
-workflow. If you read it cold, do that first.
+I'm a experienced C++ developer, have some experience in game dev. So you can use technical language, I prefer concise explanations.
+Chat with AI is going to be spanish but documentation and code in english.
 
 The other top-level docs:
 
 - [`README.md`](README.md) — public description of the project.
 - [`PLAN.md`](PLAN.md) — phases, tasks, current status.
 - [`REFERENCES.md`](REFERENCES.md) — books, articles, code examples to consult.
+- [`RAYLIB_STANDARD.md`](RAYLIB_STANDARD.md) — Code standard matching raylib.
 - [`BLUEPRINT.md`](BLUEPRINT.md) — how to start a new project from `lib/`.
 - [`docs/modules/`](docs/modules/) — per-module reference (one file per module).
 
@@ -16,30 +16,24 @@ The other top-level docs:
 
 ## AI workflow
 
-The fun part for me is writing code. AI is here to think *with* me, not
-*for* me. Default behavior:
+The fun part for me is writing code and solving problems. AI is here to think *with* me, not *for* me. Default behavior:
 
 ### Do
 
-- **Discuss, plan, design.** Brainstorm options, surface tradeoffs,
-  propose architecture, sketch APIs.
+- **Discuss, plan, design.** Brainstorm options, surface tradeoffs, propose architecture, sketch APIs.
 - **Review.** When asked, review a diff, file, or full branch. Report
   findings ranked by severity.
 - **Investigate.** Read code, run grep, trace dependencies, summarize.
 - **Generate scaffolding.** Boilerplate the AI is faster at — file
   templates, config, build glue, doc skeletons — but only when asked.
-- **Run shell, build, test.** Diagnostics and verification are AI's
-  fast lane.
+- **Run shell, build, test.** Diagnostics and verification are AI's fast lane.
 
 ### Don't
 
-- **Don't write game logic without explicit ask.** If the task is "add
-  the jump system", don't write it. Discuss the design, then I write.
-- **Don't auto-fix what you find in review.** Surface the finding.
-  I'll fix it.
-- **Don't expand scope.** If a task says "rename foo to bar", don't
-  also reorganize the file. Match the request.
-- **Don't write speculative code.** No "in case we need it later".
+- **Don't write game logic without explicit ask.** If the task is "add the jump system", don't write it. Discuss the design, then I write.
+- **Don't auto-fix what you find in review.** Surface the finding. I'll fix it.
+- **Don't expand scope.** If a task says "rename foo to bar", don't also reorganize the file. Match the request.
+- **Don't write speculative code.** No "in case we need it later", but you can tell me your ideas.
 - **Don't write comments I didn't ask for.** Code is for what,
   comments are for the rare why.
 
@@ -50,8 +44,7 @@ These mean: yes, write code now.
 - `implementá X`, `escribí esto`, `hacelo vos`
 - `refactor X siguiendo el plan` (when a plan was already agreed)
 - `fix this bug` (after we discussed root cause)
-- Closing-tasks at the boundary between phases (kit work, build glue,
-  doc generation)
+- Closing-tasks at the boundary between phases (kit work, build glue, doc generation)
 
 ### Code reviews
 
@@ -66,8 +59,7 @@ When I ask for a review:
 
 When I'm exploring options:
 
-1. Give 2-4 alternatives with the real tradeoffs (not "everything has
-   pros and cons" filler).
+1. Give 2-4 alternatives with the real tradeoffs (not "everything has pros and cons" filler).
 2. State which one you'd pick and why, in one sentence.
 3. Stop. Wait for me to push.
 
@@ -79,34 +71,12 @@ When I'm exploring options:
 
 - C99. No C++. No designated-init extensions outside the standard.
 - Single source of truth, no header-impl split into more than `.h` + `.c`.
-
-### Naming
-
-PascalCase for public API. Module prefix when there'd be a collision
-with raylib or another module.
-
-| Module           | Style              | Example                        |
-|------------------|--------------------|--------------------------------|
-| Game             | `GameXxx`          | `GameInit`, `GameRun`          |
-| LevelManager     | `LevelManagerXxx`  | `LevelManagerTransitionTo`     |
-| Renderer         | `RendererXxx`      | `RendererBuildDrawList`        |
-| Physics          | `PhysicsXxx`       | `PhysicsRayCast`               |
-| Arena            | `ArenaXxx`         | `ArenaCreate`, `ArenaReset`    |
-| Camera           | `CameraXxx`        | `CameraSetTarget`              |
-| Debug            | `DebugXxx`         | `DebugRegister3D`              |
-
-Convenience macros (alloc, asserts) in `UPPER_CASE_SNAKE` —
-`ARENA_ALLOC`, `ARENA_ALLOC_ARRAY`. Macros only, never functions.
-
-Static helpers inside a `.c` file: `camelCase` without prefix —
-`findFreeSlot`, `lerpMatrix`, `closestPointOnAABB`.
-
-Types: PascalCase — `PhysWorld`, `Renderable`, `CollisionInfo`.
+- Follow Raylib style and standards.
 
 ### File organization
 
-Kit modules (`lib/`) ship as a single `.h` + `.c` per module. No
-`_types.h` split for the kit. Each `.h` opens with:
+Reusable modules (`lib/`) ship as a single `.h` + `.c` per module. No
+`_types.h` split for the lib. Each `.h` opens with:
 
 ```
 DEPENDENCIES: raylib.h, ...
@@ -114,8 +84,7 @@ OVERRIDES (define before include):
   MAX_X (default N)
 ```
 
-Project code (`include/` + `src/`) can split into `<module>_types.h` +
-`<module>.h` + `<module>.c` if it helps reasoning, but isn't required.
+Project code (`include/` + `src/`) can split into `<module>_types.h` + `<module>.h` + `<module>.c` if it helps reasoning, but isn't required.
 
 ### Comments
 
@@ -136,17 +105,12 @@ there.
 
 ### Architectural rules
 
-- **Simple over clever.** Optimize only with measurable gain. A loop
-  over 200 elements beats a fancy spatial structure unless profiling
-  proves otherwise.
-- **No speculative abstractions.** Three similar lines is better than
-  a premature wrapper. Build the abstraction when there's a third
-  caller, not before.
+- **Simple over clever.** Optimize only with measurable gain. A loop over 200 elements beats a fancy spatial structure unless profiling proves otherwise.
+- **No speculative abstractions.** Three similar lines is better than a premature wrapper. Build the abstraction when there's a third caller, not before.
 - **No error handling for impossible cases.** Trust internal code.
   Validate at boundaries (user input, file load, GPU upload, network).
 - **No backwards-compat shims.** Change the code.
-- **One source of truth.** Kit modules in `lib/` are *the* version.
-  Don't maintain a separate amalgamated copy.
+- **One source of truth.** Reusable modules in `lib/` are *the* version. Don't maintain a separate amalgamated copy.
 
 ---
 

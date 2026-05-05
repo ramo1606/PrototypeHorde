@@ -4,8 +4,7 @@ A 3D Boxhead-style arena shooter built in C99 on raylib 6.0. Targets
 desktop (Windows / Linux) and the Anbernic handheld family (RG35XX
 Plus/H/40/V running muOS) in a single codebase.
 
-The repo doubles as a small reusable kit. The contents of `lib/` are
-designed to be dropped into other raylib projects — see
+The repo doubles as a small reusable kit. The contents of `lib/` are designed to be dropped into other raylib projects — see
 [`BLUEPRINT.md`](BLUEPRINT.md).
 
 ## Status
