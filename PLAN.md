@@ -1,4 +1,7 @@
-# PLAN.md — Boxhead 3D, phases and tasks
+# PLAN.md — Prototype Horde, phases and tasks
+
+Prototype Horde is a 3D clone of *Boxhead 2Play* (the original Flash
+arena shooter), built in C99 on raylib 6.0.
 
 Live document. Update as phases and tasks complete.
 

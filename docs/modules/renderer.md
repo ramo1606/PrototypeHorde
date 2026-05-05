@@ -86,7 +86,9 @@ behind some plane. False positives at frustum corners are accepted —
 drawing one extra is fine, missing a visible one is not.
 
 Reference: Gribb & Hartmann, *Fast Extraction of Viewing Frustum Planes
-from the World-View-Projection Matrix*.
+from the World-View-Projection Matrix*. See
+[`REFERENCES.md`](../../REFERENCES.md) for additional rendering and
+math sources.
 
 ## Material sorting
 

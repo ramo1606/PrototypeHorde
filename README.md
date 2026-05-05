@@ -102,12 +102,17 @@ No system package install is needed beyond a C99 toolchain.
 
 ## Documentation
 
-- [`CLAUDE.md`](CLAUDE.md) — full project plan, phases, naming
-  conventions, decisions.
+- [`CLAUDE.md`](CLAUDE.md) — working style, AI workflow, and code
+  standards for contributors.
+- [`PLAN.md`](PLAN.md) — phases, tasks, current status.
+- [`REFERENCES.md`](REFERENCES.md) — books, articles, and code I want
+  considered when designing or reviewing.
+- [`RAYLIB_STANDARD.md`](RAYLIB_STANDARD.md) — code style matching
+  raylib (naming, formatting, file conventions).
 - [`BLUEPRINT.md`](BLUEPRINT.md) — how to start a new project from the
   `lib/` kit.
 - [`docs/modules/`](docs/modules/) — per-module reference (kit and
-  project).
+  project). Start at [`docs/modules/README.md`](docs/modules/README.md).
 
 ## License
 

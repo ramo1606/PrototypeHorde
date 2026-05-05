@@ -227,5 +227,5 @@ Project code:
   render policy.
 - Adapts the kit to this specific game.
 
-If a change in `lib/` would only make sense for Boxhead 3D, it
+If a change in `lib/` would only make sense for Prototype Horde, it
 belongs in the project, not the kit.

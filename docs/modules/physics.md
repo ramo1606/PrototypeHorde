@@ -28,8 +28,12 @@ OVERRIDES (define before include):
 - **Trigger** — detects overlap but does not push out.
 
 The module does **not** name any layers — define your own (e.g.
-`#define LAYER_PLAYER (1 << 0)`) in your project. Boxhead 3D's set
-lives in `include/layers.h`.
+`#define LAYER_PLAYER (1 << 0)`) in your project. Prototype Horde's
+set lives in `include/layers.h`.
+
+See also: *Real-Time Collision Detection* (Christer Ericson) in
+[`REFERENCES.md`](../../REFERENCES.md) for the geometric tests this
+module implements.
 
 ## Types
 

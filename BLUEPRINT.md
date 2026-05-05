@@ -38,7 +38,7 @@ my_game/
     physics.h, physics.c
     level_manager.h, level_manager.c
 
-  external/             ← copy these dependencies
+  externals/             ← copy these dependencies
     rmem.h              (single-header arena impl, already wrapped by arena.h)
     rmem_impl.c         (or define RMEM_IMPLEMENTATION in one .c)
 
@@ -61,7 +61,7 @@ CMake: just `file(GLOB SOURCES lib/*.c src/*.c)` and
 
 ## A new project in seven steps
 
-1. **Copy `lib/`** into your project. Copy `rmem.h` to `external/`.
+1. **Copy `lib/`** into your project. Copy `rmem.h` to `externals/`.
 2. **Create your `Game` struct** with the kit subsystems by value:
    ```c
    typedef struct Game {
@@ -113,13 +113,13 @@ CMake: just `file(GLOB SOURCES lib/*.c src/*.c)` and
        float alpha = game->accumulator / FIXED_TIMESTEP;
        ArenaReset(&game->scratch);
 
-        BeginDrawing();
-            ClearBackground(...);
-            RendererBuildDrawList(&game->renderer, camera, alpha);
-            BeginMode3D(camera);
-                RendererDraw3D(&game->renderer);
-                LevelManagerRender3D(&game->levelMgr, alpha);
-            EndMode3D();
+       BeginDrawing();
+           ClearBackground(...);
+           RendererBuildDrawList(&game->renderer, camera, alpha);
+           BeginMode3D(camera);
+               RendererDraw3D(&game->renderer);
+               LevelManagerRender3D(&game->levelMgr, alpha);
+           EndMode3D();
            LevelManagerRenderHUD(&game->levelMgr, alpha);
            LevelManagerRender(&game->levelMgr);   /* transition overlay last */
        EndDrawing();
@@ -138,7 +138,8 @@ any game lives in your `src/` folder.
 
 ## Reference implementation
 
-This repo (Boxhead 3D) is a worked example. Look at:
+This repo (Prototype Horde — a 3D *Boxhead 2Play* clone) is a worked
+example. Look at:
 
 - `src/main.c` — the malloc-free pattern
 - `src/game.c` — the loop and subsystem wiring

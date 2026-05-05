@@ -1,26 +1,45 @@
-# Assets Directory
+# Assets
 
-This directory is for game assets such as:
-- Textures and images
-- Audio files (music and sound effects)
-- Fonts
-- Configuration files
-- Sprites and animations
+Game assets shipped with Prototype Horde. CMake copies this directory
+verbatim to the build output, so paths used at runtime are relative to
+the repo root (e.g. `assets/characters/player.glb`).
 
-The CMakeLists.txt is configured to automatically copy this entire directory to the build output when building the project.
+## Layout convention
 
-## Organization Examples
+Follows raylib's recommendation (see
+[`RAYLIB_STANDARD.md §8`](../RAYLIB_STANDARD.md)): group by context
+and load timing, not by file type.
 
 ```
 assets/
-├── textures/
-│   ├── player.png
-│   └── background.png
-├── audio/
-│   ├── music/
-│   └── sfx/
-├── fonts/
-│   └── game_font.ttf
-└── data/
-    └── levels.json
+  audio/
+    fx/                long_jump.wav, pistol_fire.wav, ...
+    music/             main_theme.ogg, wave_loop.ogg
+  screens/
+    logo/              logo.png
+    title/             title.png
+    gameplay/          background.png, hud_atlas.png
+  characters/          player.glb, zombie_basic.glb, ...
+  weapons/             pistol.glb, shotgun.glb, ...
+  arenas/              arena_01.glb, arena_02.glb
+  common/              font_main.ttf, gui.png, palette.png
+  data/                waves.rini, weapons.rini
 ```
+
+## Naming rules
+
+- `snake_case` for files and directories.
+- No spaces, no special characters.
+- Descriptive names — the filename should explain the asset without
+  opening it.
+- Group what loads together (a level loads from a single subdirectory
+  when possible).
+
+## What goes where
+
+- **`audio/fx`** — short, one-shot sound effects.
+- **`audio/music`** — looping tracks.
+- **`screens/<name>`** — assets owned by a single screen / state.
+- **`characters/`, `weapons/`, `arenas/`** — gameplay-shared models.
+- **`common/`** — shared across the whole game (fonts, GUI atlas).
+- **`data/`** — config and definition tables (rini, rres, json).

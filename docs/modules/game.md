@@ -1,6 +1,6 @@
 # game (project)
 
-Top-level orchestrator for Boxhead 3D. Owns the three memory arenas,
+Top-level orchestrator for Prototype Horde. Owns the three memory arenas,
 every kit subsystem (renderer, physics, level manager) by value, the
 camera, and the project-wide render state that sits above the kit.
 Runs the main loop with fixed-timestep updates and decoupled rendering.
