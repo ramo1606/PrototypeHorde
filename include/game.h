@@ -1,22 +1,37 @@
 #pragma once
 
-#include "game_types.h"
+#include "arena.h"
 #include "camera.h"
+#include "config.h"
+#include "level_manager.h"
+#include "physics.h"
+#include "renderer.h"
+#include <stdbool.h>
 
-/* ── Lifecycle ───────────────────────────────────────────────────────────── */
+typedef struct Game
+{
+    MemArena permanent;
+    MemArena level;
+    MemArena scratch;
+    LevelManager levelMgr;
+    Renderer renderer;
+    PhysWorld physWorld;
+    GameCamera camera;
+    Color clearColor;
+    float accumulator;
+    float alpha;
+    int updateCount;
+    float frametimeMs;
+    float frametimeMin;
+    float frametimeMax;
+    float frametimeAvg;
+    float frametimeAccum;
+    int frametimeCount;
+    double frametimeResetTimer;
+    bool running;
+} Game;
 
 bool GameInit(Game* game, Level* initialLevel);
 void GameShutdown(Game* game);
 void GameRun(Game* game);
-
-/* ── Render Helpers (game-specific glue) ─────────────────────────────────── */
-
-/* Assign the project's default cel shader to every material of `model`.
- * Call before RendererRegister if you want cel shading on this model. */
-void GameApplyDefaultShader(Game* game, Model* model);
-
-/* Toggle a blob shadow under a registered renderable. */
-void GameSetBlobShadow(Game* game, RenderHandle handle, bool enabled, float radius);
-
-/* Set the background clear color used each frame. */
 void GameSetClearColor(Game* game, Color color);

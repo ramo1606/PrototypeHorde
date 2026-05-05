@@ -6,8 +6,8 @@
  * This file is the host project's config, NOT the kit's. Kit modules
  * (renderer, physics, level_manager, arena) define their own defaults
  * with #ifndef guards; the project overrides them here BEFORE the kit
- * headers see them. game_types.h is the include point that ensures the
- * order: it pulls config.h before any kit header.
+ * headers see them. game.h is the include point that ensures the order:
+ * it pulls config.h before any kit header that consumes the overrides.
  */
 
 /* ── Platform-dependent values ───────────────────────────────────────────── */

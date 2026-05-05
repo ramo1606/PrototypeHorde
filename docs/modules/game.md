@@ -2,7 +2,7 @@
 
 Top-level orchestrator for Boxhead 3D. Owns the three memory arenas,
 every kit subsystem (renderer, physics, level manager) by value, the
-camera, and the host-side render glue (cel shader + blob shadows).
+camera, and the project-wide render state that sits above the kit.
 Runs the main loop with fixed-timestep updates and decoupled rendering.
 
 This is **project code**, not part of the kit. It pulls kit modules
@@ -17,16 +17,14 @@ together and provides the `Game` type.
 
 | Function | Purpose |
 |---|---|
-| `GameInit(*game, *initialLevel)` | Bring up window, audio, every subsystem; load cel shader and blob shadow resources; init the first level. Returns false on failure. |
-| `GameShutdown(*game)` | Tear down in reverse: shut down active level, unload effect resources, kit subsystems, audio/window, destroy arenas. |
+| `GameInit(*game, *initialLevel)` | Bring up window, audio, every subsystem, and the first level. Returns false on fatal setup failure. |
+| `GameShutdown(*game)` | Tear down in reverse: shut down active level, subsystems, audio/window, destroy arenas. |
 | `GameRun(*game)` | Main loop until `WindowShouldClose()` or `running == false`. |
 
-### Render glue (host-side helpers)
+### Render state helper
 
 | Function | Purpose |
 |---|---|
-| `GameApplyDefaultShader(*game, *model)` | Assign the project's cel shader to every material of `model`. Call before `RendererRegister`. |
-| `GameSetBlobShadow(*game, handle, on, radius)` | Toggle a blob shadow under a registered renderable. |
 | `GameSetClearColor(*game, color)` | Background color used each frame. |
 
 ## Bring-up order
@@ -40,8 +38,6 @@ DebugInit
 RendererInit
 CameraInit
 PhysicsInit
-loadCelShader(game)         /* may fail → log + continue (default shader) */
-loadShadowResources(game)   /* may fail → log + continue (no blob shadows) */
 LevelManagerInit (calls initialLevel->Init)
 levelMgr.onSwap = onLevelSwap
 DebugRegister3D(2, physDebugDraw3D)
@@ -49,15 +45,12 @@ DebugRegister3D(2, physDebugDraw3D)
 
 Each step that can fail is gated. Fatal failures (arenas, window) call
 `gameInitCleanup` which tears down everything that did succeed before
-returning false. Non-fatal failures (audio, shaders, shadow texture)
-log a warning and continue with degraded behavior — `applyCelShaderUniforms`,
-`drawBlobShadows`, and `GameApplyDefaultShader` early-return when their
-resources didn't load.
+returning false. Audio init is non-fatal: the game logs a warning and
+continues silent.
 
 Tear-down in `GameShutdown` is the reverse, with the level manager
 going first so the active level's `Shutdown` runs before the
-subsystems it depends on are gone. Each `Unload*` is guarded by an
-`id != 0` check so partial-init shutdown is safe.
+subsystems it depends on are gone.
 
 ## Main loop
 
@@ -84,9 +77,7 @@ while (!WindowShouldClose() && game->running) {
         ClearBackground(clearColor)
         RendererBuildDrawList(&renderer, camera.camera, alpha)
         BeginMode3D(camera.camera)
-            applyCelShaderUniforms(game)            /* host glue */
             RendererDraw3D(&renderer)
-            drawBlobShadows(game)                   /* host glue */
             LevelManagerRender3D(&mgr, alpha)
             DebugRender3D(game)
         EndMode3D()
@@ -117,24 +108,14 @@ fresh `Camera3D` is then passed to `RendererBuildDrawList` and
 fixed ticks. Per-tick gameplay code can rely on it for short-lived
 buffers without bookkeeping.
 
-## Host-side render glue
+## Project-owned render state
 
-The kit renderer is intentionally minimal. The project owns:
+The kit renderer is intentionally minimal. The project currently owns:
 
-- **Cel shader** — `loadCelShader` calls raylib `LoadShader` directly.
-  Uniform locations cached. `applyCelShaderUniforms` pushes
-  `lightDir`, `ambient`, `numBands` once per frame inside `BeginMode3D`.
-  Models get the shader assigned via `GameApplyDefaultShader` before
-  registration.
-- **Blob shadows** — `loadShadowResources` generates a 64×64 radial
-  gradient texture and a unit plane. `drawBlobShadows` walks
-  `renderer.drawList` (post-cull, interpolated) and draws a textured
-  plane under any entity tagged in `game->blobOn[]`.
 - **Clear color** — `game->clearColor` passed to `ClearBackground`.
 
-If you replace the cel shader with another (Phong, PBR, etc.) you only
-touch `loadCelShader` and `applyCelShaderUniforms`. The kit doesn't
-care.
+Stylized shading, blob shadows, and similar polish passes are outside
+the kit and can be added later without changing `renderer.c`.
 
 ## Level swap callback
 
@@ -154,7 +135,7 @@ values reflect recent behavior.
 `game.c` only contains:
 
 - The loop director (subsystem ordering, timing).
-- Project-specific render glue (cel shader, blob shadows, clear color).
+- Project-specific render state (`clearColor`).
 - The debug stats fan-out (one-way: game reads, kit modules don't know
   about debug).
 

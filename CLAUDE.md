@@ -84,7 +84,8 @@ OVERRIDES (define before include):
   MAX_X (default N)
 ```
 
-Project code (`include/` + `src/`) can split into `<module>_types.h` + `<module>.h` + `<module>.c` if it helps reasoning, but isn't required.
+Project code (`include/` + `src/`) should also prefer a single
+`<module>.h` + `<module>.c` pair. Don't add `_types.h` splits.
 
 ### Comments
 
@@ -208,7 +209,7 @@ cmake --build build-rg35xx
 lib/                ← reusable kit (arena, renderer, physics, level_manager)
 include/            ← project headers (game, camera, debug, config, layers)
 src/                ← project implementation
-assets/             ← shaders, models, textures
+assets/             ← models, textures, audio, data
 docs/modules/       ← per-module reference docs
 ```
 
@@ -222,8 +223,8 @@ Kit modules (`lib/`):
 
 Project code:
 - Owns the `Game` type and all subsystem wiring.
-- Defines collision layers, gameplay constants, render glue (cel
-  shader, blob shadows).
+- Defines collision layers, gameplay constants, and project-specific
+  render policy.
 - Adapts the kit to this specific game.
 
 If a change in `lib/` would only make sense for Boxhead 3D, it

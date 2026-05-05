@@ -1,28 +1,55 @@
 #pragma once
 
-#include "debug_types.h"
 #include <stdbool.h>
+#include <stddef.h>
+
+typedef struct Game Game;
+
+#define DEBUG_MAX_PANELS 6
+
+typedef void (*DebugPanelDrawFn)(float x, float y, float w, float h);
+typedef void (*DebugRender3DFn)(Game* game);
+
+typedef struct DebugPerfStats
+{
+    float frametimeMs;
+    float frametimeAvg;
+    float frametimeMin;
+    float frametimeMax;
+    int fps;
+    int ticksThisFrame;
+    float alpha;
+    size_t arenaPermanentTotal;
+    size_t arenaPermanentFree;
+    size_t arenaLevelTotal;
+    size_t arenaLevelFree;
+    size_t arenaScratchTotal;
+    size_t arenaScratchFree;
+    int renderableCount;
+    int drawCount;
+    int statsDrawn;
+    int statsCulled;
+    int colliderCount;
+    int pairsChecked;
+    int contactsFound;
+    int triggersFound;
+} DebugPerfStats;
 
 #ifdef DEBUG_ENABLED
 
 void DebugInit(void);
 void DebugShutdown(void);
 
-/* Register a 2D overlay panel. slot 0..5 maps to F2..F7. */
 void DebugRegisterPanel(int slot, const char* name, DebugPanelDrawFn drawFn);
-
-/* Register a 3D gizmo renderer. slot 0..5 maps to F2..F7 (shared toggle). */
 void DebugRegister3D(int slot, DebugRender3DFn renderFn);
 
 void DebugUpdate(Game* game);
-void DebugRender3D(Game* game);   /* Call inside BeginMode3D */
-void DebugRender(Game* game);     /* Call after EndMode3D */
-
+void DebugRender3D(Game* game);
+void DebugRender(Game* game);
 void DebugSetPerfStats(const DebugPerfStats* stats);
-
 bool DebugIsVisible(void);
 
-#else /* release: zero-cost no-ops */
+#else
 
 #define DebugInit()
 #define DebugShutdown()
@@ -34,4 +61,4 @@ bool DebugIsVisible(void);
 #define DebugSetPerfStats(stats)
 #define DebugIsVisible() false
 
-#endif /* DEBUG_ENABLED */
+#endif

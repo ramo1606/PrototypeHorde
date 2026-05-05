@@ -8,8 +8,7 @@ Live document. Update as phases and tasks complete.
 
 Clone of Boxhead 2Play with 3D assets and a fixed isometric camera with
 low-angle perspective. Mechanics faithful to the original: 8-direction
-movement, jump, growing waves, full arsenal, deployables. Cel-shaded 3D
-engine.
+movement, jump, growing waves, full arsenal, deployables.
 
 **Primary target:** Anbernic family (RG35XX Plus/H/40/V on muOS),
 including devices without analog sticks. Variable resolution, stable
@@ -54,9 +53,7 @@ following the centroid of the live players).
 - ✅ 1.2 Renderer interpolation
 - ✅ 1.3 Frustum culling (Gribb-Hartmann)
 - ✅ 1.4 Material sorting
-- ✅ 1.5 Cel shader
-- ✅ 1.6 Isometric camera (rewrite from orbit/aim)
-- ✅ 1.7 Blob shadows
+- ✅ 1.5 Isometric camera (rewrite from orbit/aim)
 
 ---
 
@@ -181,13 +178,14 @@ Minimum core loop: move, shoot, kill, die.
 
 ## Phase 10 — Visual polish, audio, final UI ⬜
 
-- ⬜ 10.1 Outline shader (optional)
-- ⬜ 10.2 Particle system
-- ⬜ 10.3 Screen shake
-- ⬜ 10.4 Hit feedback (flash, damage numbers, knockback)
-- ⬜ 10.5 Audio (raylib)
-- ⬜ 10.6 Custom HUD: atlas, font, animations
-- ⬜ 10.7 Custom menus
+- ⬜ 10.1 Blob shadows
+- ⬜ 10.2 Outline shader (optional)
+- ⬜ 10.3 Particle system
+- ⬜ 10.4 Screen shake
+- ⬜ 10.5 Hit feedback (flash, damage numbers, knockback)
+- ⬜ 10.6 Audio (raylib)
+- ⬜ 10.7 Custom HUD: atlas, font, animations
+- ⬜ 10.8 Custom menus
 
 ---
 
@@ -221,7 +219,7 @@ centroid; distance scales with group spread.
 
 ```
 Phase 0 ✅
-  └→ Phase 1 (renderer + iso camera + cel shading) ✅
+  └→ Phase 1 (renderer + iso camera) ✅
        └→ Phase 2 (physics) ✅
             └→ Phase 3 (player 8-dir + jump + strafe) ⏭
                  └→ Phase 4 (pistol + zombie = core loop)

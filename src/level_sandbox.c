@@ -66,16 +66,13 @@ static void Init(void* user)
     data->rotation     = 0.0f;
     data->rotationPrev = 0.0f;
     data->markerModel  = LoadModelFromMesh(GenMeshSphere(0.2f, 8, 8));
-    GameApplyDefaultShader(game, &data->markerModel);
     data->markerHandle = RendererRegister(&game->renderer, data->markerModel, 0);
 
     /* Reference cube at origin. */
     data->cubeModel  = LoadModelFromMesh(GenMeshCube(1.0f, 1.0f, 1.0f));
-    GameApplyDefaultShader(game, &data->cubeModel);
     data->cubeHandle = RendererRegister(&game->renderer, data->cubeModel, 0);
     RendererSetTransform(&game->renderer, data->cubeHandle,
         MatrixTranslate(0.0f, 0.5f, 0.0f));
-    GameSetBlobShadow(game, data->cubeHandle, true, 0.7f);
     data->cubeColl = PhysicsAddBox(&game->physWorld,
         (Vector3){ 0.0f, 0.5f, 0.0f },
         (Vector3){ 0.5f, 0.5f, 0.5f },
@@ -87,11 +84,9 @@ static void Init(void* user)
     data->dummyYaw    = 0.0f;
     data->dummySpeed  = 5.0f;
     data->dummyModel  = LoadModelFromMesh(GenMeshCube(0.4f, 0.9f, 0.4f));
-    GameApplyDefaultShader(game, &data->dummyModel);
     data->dummyHandle = RendererRegister(&game->renderer, data->dummyModel, 0);
     RendererSetTransform(&game->renderer, data->dummyHandle,
         MatrixTranslate(data->dummyPos.x, 0.45f, data->dummyPos.z));
-    GameSetBlobShadow(game, data->dummyHandle, true, 0.5f);
     data->dummyColl = PhysicsAddCapsule(&game->physWorld,
         (Vector3){ data->dummyPos.x, 0.5f, data->dummyPos.z },
         0.3f, 0.2f,
@@ -100,7 +95,6 @@ static void Init(void* user)
 
     /* Obstacles. */
     data->obstacleModel = LoadModelFromMesh(GenMeshCube(2.0f, 1.0f, 1.0f));
-    GameApplyDefaultShader(game, &data->obstacleModel);
 
     Vector3 obstaclePositions[3] = {
         {  4.0f, 0.5f,  0.0f },
@@ -113,7 +107,6 @@ static void Init(void* user)
         data->obstacleHandles[i] = RendererRegister(&game->renderer, data->obstacleModel, 0);
         RendererSetTransform(&game->renderer, data->obstacleHandles[i],
             MatrixTranslate(obstaclePositions[i].x, obstaclePositions[i].y, obstaclePositions[i].z));
-        GameSetBlobShadow(game, data->obstacleHandles[i], true, 1.2f);
 
         data->obstacleColl[i] = PhysicsAddBox(&game->physWorld,
             obstaclePositions[i],

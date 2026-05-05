@@ -12,8 +12,8 @@
  *
  * The renderer does not own a camera, a clear color, a shader, or any
  * effect. Callers pass the Camera3D to BuildDrawList; shader assignment
- * to models is the caller's job; effects (cel shading, blob shadows,
- * outline) draw after RendererDraw3D using the public draw list.
+ * to models is the caller's job; optional host-side effect passes draw
+ * after RendererDraw3D using the public draw list.
  */
 
 #include "raylib.h"
@@ -54,8 +54,8 @@ typedef struct FrustumPlane
 } FrustumPlane;
 
 /* Entry in the sorted draw list: renderable index + sort key.
- * Public so effects passes (blob shadows, outlines) can iterate visible
- * objects with their interpolated transforms. */
+ * Public so host-side effect passes can iterate visible objects with
+ * their interpolated transforms. */
 typedef struct DrawEntry
 {
     int    index;                /* Index into renderables[] */

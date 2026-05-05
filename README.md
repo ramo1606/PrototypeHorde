@@ -11,9 +11,9 @@ The repo doubles as a small reusable kit. The contents of `lib/` are designed to
 
 In active development. Phases 0, 1, and 2 are done: scaffolding,
 fixed-timestep loop, memory arenas, level transition system, debug
-overlay, renderer (frustum culling + material sorting + cel shading +
-blob shadows), fixed isometric camera, and the physics world (AABB /
-sphere / capsule colliders, MoveAndCollide, raycast, overlap).
+overlay, renderer (frustum culling + material sorting), fixed
+isometric camera, and the physics world (AABB / sphere / capsule
+colliders, MoveAndCollide, raycast, overlap).
 
 The repo currently runs a single `level_sandbox` that wires a
 WASD-driven dummy capsule against the physics world — placeholder
@@ -39,9 +39,9 @@ lib/                  ← reusable kit modules (see BLUEPRINT.md)
   renderer.h, .c
 
 include/              ← project code
-  game_types.h, game.h
-  camera_types.h, camera.h
-  debug_types.h, debug.h
+  game.h
+  camera.h
+  debug.h
   config.h, layers.h
   level_sandbox.h
   externals/...       ← rmem, rini, rres, raygui, reasings
@@ -51,7 +51,7 @@ src/                  ← project implementation
   camera.c, debug.c
   level_sandbox.c
 
-assets/               ← shaders, models, textures
+assets/               ← models, textures, audio, data
 docs/modules/         ← per-module documentation
 ```
 

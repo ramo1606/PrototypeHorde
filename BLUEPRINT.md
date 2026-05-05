@@ -23,7 +23,7 @@ Read that block first when you copy the file.
 |---|---|
 | Game loop | A 30-line fixed-timestep accumulator. Copy from `src/game.c`, adapt. Not worth a configurable library. |
 | Resource manager | At small scope, `LoadModel("path")` direct from raylib is simpler than a registry. Add a registry only if a project really needs one. |
-| Cel shader / blob shadows | Stylistic effects, not infrastructure. Your project decides which to use. |
+| Stylized shading / polish passes | Stylistic effects, not infrastructure. Your project decides which to use and when to add them. |
 | Camera | Game-specific (orbit, isometric, top-down, FPS). The kit doesn't impose a model. |
 | Debug overlay | Inherently coupled to whatever stats you want to inspect. Write your own panels with raygui, or copy from `src/debug.c`. |
 | Collision layers | Defined in your project (e.g. `include/layers.h`). The physics module operates on raw `int` bitfields. |
@@ -113,14 +113,13 @@ CMake: just `file(GLOB SOURCES lib/*.c src/*.c)` and
        float alpha = game->accumulator / FIXED_TIMESTEP;
        ArenaReset(&game->scratch);
 
-       BeginDrawing();
-           ClearBackground(...);
-           RendererBuildDrawList(&game->renderer, camera, alpha);
-           BeginMode3D(camera);
-               /* your shader uniforms */
-               RendererDraw3D(&game->renderer);
-               LevelManagerRender3D(&game->levelMgr, alpha);
-           EndMode3D();
+        BeginDrawing();
+            ClearBackground(...);
+            RendererBuildDrawList(&game->renderer, camera, alpha);
+            BeginMode3D(camera);
+                RendererDraw3D(&game->renderer);
+                LevelManagerRender3D(&game->levelMgr, alpha);
+            EndMode3D();
            LevelManagerRenderHUD(&game->levelMgr, alpha);
            LevelManagerRender(&game->levelMgr);   /* transition overlay last */
        EndDrawing();
@@ -142,7 +141,7 @@ any game lives in your `src/` folder.
 This repo (Boxhead 3D) is a worked example. Look at:
 
 - `src/main.c` — the malloc-free pattern
-- `src/game.c` — the loop, cel shader + blob shadow glue
+- `src/game.c` — the loop and subsystem wiring
 - `src/level_sandbox.c` — a level that registers models and colliders
 - `include/config.h` — host-side overrides for the kit
 - `include/layers.h` — collision layer definitions

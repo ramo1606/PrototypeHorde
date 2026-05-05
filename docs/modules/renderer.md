@@ -3,10 +3,9 @@
 Pool of registered models with frame-rate independent interpolation,
 Gribb-Hartmann frustum culling, and material/distance sort. The renderer
 does **not** own a camera, a clear color, a shader, or any effect.
-Callers pass the `Camera3D` to `RendererBuildDrawList`; shader assignment
-is done on models by the host before registering; effects (cel shading,
-blob shadows, outlines) iterate the public draw list after
-`RendererDraw3D`.
+Callers pass the `Camera3D` to `RendererBuildDrawList`; custom material
+setup is done on models by the host before registering; optional effect
+passes iterate the public draw list after `RendererDraw3D`.
 
 Lives under `lib/` as part of the reusable kit.
 
@@ -61,9 +60,8 @@ PER FRAME (visual):
     BeginDrawing()
         ClearBackground(...)              // host-side
         BeginMode3D(camera)
-            [host pushes shader uniforms]
             RendererDraw3D(r)
-            [host effect passes — blob shadows, outlines, ...]
+            [host effect passes — outlines, decals, ground projections, ...]
         EndMode3D()
         ...
     EndDrawing()
@@ -113,8 +111,8 @@ overestimates for non-uniform scale.
 
 ## Effect pattern (host-side)
 
-Effects like blob shadows, outlines, decals iterate the public draw
-list:
+Effects like outlines, decals, or other host-side passes iterate the
+public draw list:
 
 ```c
 for (int d = 0; d < r->drawCount; d++) {
@@ -128,4 +126,4 @@ for (int d = 0; d < r->drawCount; d++) {
 
 The renderer guarantees only visible (post-cull) entries are present
 and the transform is interpolated. Anything else (per-entity flags,
-shadow radii, outline colors) is the host's parallel state.
+effect parameters, outline colors) is the host's parallel state.

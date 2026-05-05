@@ -2,11 +2,9 @@
 #include "arena.h"
 #include "debug.h"
 #include "raylib.h"
-#include "raymath.h"
 
-#include <string.h>
 #include <assert.h>
-#include <math.h>
+#include <string.h>
 
 /* ── Debug Callbacks ─────────────────────────────────────────────────────── */
 
@@ -25,154 +23,6 @@ static void onLevelSwap(void* user)
     Game* game = (Game*)user;
     ArenaReset(&game->level);
 }
-
-/* ── Cel Shader Setup (game-side glue) ───────────────────────────────────── */
-
-static bool loadCelShader(Game* game)
-{
-    const char* vs = "assets/shaders/cel.vs";
-    const char* fs = "assets/shaders/cel.fs";
-
-    if (!FileExists(vs) || !FileExists(fs))
-    {
-        TraceLog(LOG_ERROR, "Game: cel shader files missing (%s / %s)", vs, fs);
-        game->celShader.id = 0;
-        return false;
-    }
-
-    game->celShader = LoadShader(vs, fs);
-    if (game->celShader.id == 0)
-    {
-        TraceLog(LOG_ERROR, "Game: LoadShader returned invalid id");
-        return false;
-    }
-
-    /* Tell raylib where the model matrix uniform lives so it auto-sets it
-     * before each DrawModel call. */
-    game->celShader.locs[SHADER_LOC_MATRIX_MODEL] =
-        GetShaderLocation(game->celShader, "matModel");
-
-    game->celLocLightDir = GetShaderLocation(game->celShader, "lightDir");
-    game->celLocAmbient  = GetShaderLocation(game->celShader, "ambient");
-    game->celLocNumBands = GetShaderLocation(game->celShader, "numBands");
-
-    if (game->celLocLightDir < 0 || game->celLocAmbient < 0 || game->celLocNumBands < 0)
-    {
-        TraceLog(LOG_WARNING,
-            "Game: cel shader missing uniforms (lightDir=%d ambient=%d numBands=%d) — continuing",
-            game->celLocLightDir, game->celLocAmbient, game->celLocNumBands);
-        /* Not fatal: SetShaderValue with -1 loc is a no-op in raylib. */
-    }
-
-    game->lightDir = Vector3Normalize((Vector3){ 0.5f, 1.0f, 0.3f });
-    game->ambient  = 0.2f;
-    game->numBands = 3.0f;
-    return true;
-}
-
-/* Apply per-frame cel shader uniforms. Must run before RendererDraw3D
- * inside BeginMode3D. No-op if cel shader didn't load. */
-static void applyCelShaderUniforms(Game* game)
-{
-    if (game->celShader.id == 0) return;
-
-    float lightDirArr[3] = { game->lightDir.x, game->lightDir.y, game->lightDir.z };
-    SetShaderValue(game->celShader, game->celLocLightDir, lightDirArr, SHADER_UNIFORM_VEC3);
-    SetShaderValue(game->celShader, game->celLocAmbient,  &game->ambient,  SHADER_UNIFORM_FLOAT);
-    SetShaderValue(game->celShader, game->celLocNumBands, &game->numBands, SHADER_UNIFORM_FLOAT);
-}
-
-/* ── Blob Shadow Setup (game-side glue) ──────────────────────────────────── */
-
-#define SHADOW_TEX_SIZE   64
-#define SHADOW_MAX_HEIGHT 6.0f
-#define SHADOW_GROUND_Y   0.01f
-
-static bool loadShadowResources(Game* game)
-{
-    Image img = GenImageColor(SHADOW_TEX_SIZE, SHADOW_TEX_SIZE, BLANK);
-    Color* pixels = (Color*)img.data;
-    float half = SHADOW_TEX_SIZE * 0.5f;
-
-    for (int y = 0; y < SHADOW_TEX_SIZE; y++)
-    {
-        for (int x = 0; x < SHADOW_TEX_SIZE; x++)
-        {
-            float dx = (x + 0.5f - half) / half;
-            float dy = (y + 0.5f - half) / half;
-            float dist = sqrtf(dx * dx + dy * dy);
-
-            float alpha = 1.0f - dist;
-            if (alpha < 0.0f) alpha = 0.0f;
-            alpha *= alpha;
-
-            unsigned char a = (unsigned char)(alpha * 160.0f);
-            pixels[y * SHADOW_TEX_SIZE + x] = (Color){ 0, 0, 0, a };
-        }
-    }
-
-    game->shadowTex = LoadTextureFromImage(img);
-    UnloadImage(img);
-    if (game->shadowTex.id == 0)
-    {
-        TraceLog(LOG_WARNING, "Game: shadow texture upload failed");
-        return false;
-    }
-
-    Mesh planeMesh = GenMeshPlane(1.0f, 1.0f, 1, 1);
-    game->shadowPlane = LoadModelFromMesh(planeMesh);
-    if (game->shadowPlane.meshCount == 0)
-    {
-        TraceLog(LOG_WARNING, "Game: shadow plane creation failed");
-        UnloadTexture(game->shadowTex);
-        game->shadowTex.id = 0;
-        return false;
-    }
-
-    game->shadowPlane.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = game->shadowTex;
-    return true;
-}
-
-/* Walk the renderer's draw list (visible + interpolated) and draw a blob
- * shadow plane under any entry tagged in game->blobOn. Call inside
- * BeginMode3D, after RendererDraw3D. */
-static void drawBlobShadows(Game* game)
-{
-    if (game->shadowTex.id == 0) return;  /* Resources never loaded. */
-
-    BeginBlendMode(BLEND_ALPHA);
-
-    for (int d = 0; d < game->renderer.drawCount; d++)
-    {
-        DrawEntry* entry = &game->renderer.drawList[d];
-        int idx = entry->index;
-        if (!game->blobOn[idx]) continue;
-
-        float wx = entry->transform.m12;
-        float wy = entry->transform.m13;
-        float wz = entry->transform.m14;
-
-        float height = wy;
-        if (height < 0.0f) height = 0.0f;
-        if (height > SHADOW_MAX_HEIGHT) continue;
-
-        float heightRatio = height / SHADOW_MAX_HEIGHT;
-        float scale = game->blobRadius[idx] * 2.0f * (1.0f - heightRatio * 0.5f);
-        unsigned char alpha = (unsigned char)(255.0f * (1.0f - heightRatio));
-
-        game->shadowPlane.transform = MatrixMultiply(
-            MatrixScale(scale, 1.0f, scale),
-            MatrixTranslate(wx, SHADOW_GROUND_Y, wz)
-        );
-
-        DrawModel(game->shadowPlane, (Vector3) { 0, 0, 0 }, 1.0f,
-            (Color) { 255, 255, 255, alpha });
-    }
-
-    EndBlendMode();
-}
-
-/* ── Frametime Statistics ────────────────────────────────────────────────── */
 
 static void updateFrametimeStats(Game* game, float dtMs)
 {
@@ -283,18 +133,6 @@ bool GameInit(Game* game, Level* initialLevel)
     CameraInit(&game->camera);
     PhysicsInit(&game->physWorld);
 
-    /* Game-side render glue. Both helpers are best-effort: they log on
-     * failure but don't abort init. drawBlobShadows / applyCelShader
-     * become no-ops if resources didn't load. */
-    if (!loadCelShader(game))
-    {
-        TraceLog(LOG_ERROR, "Game: continuing without cel shader (models will use raylib default)");
-    }
-    if (!loadShadowResources(game))
-    {
-        TraceLog(LOG_WARNING, "Game: continuing without blob shadows");
-    }
-
     LevelManagerInit(&game->levelMgr, game, initialLevel);
     game->levelMgr.onSwap = onLevelSwap;
 
@@ -314,11 +152,6 @@ void GameShutdown(Game* game)
     assert(game);
 
     LevelManagerShutdown(&game->levelMgr);
-
-    /* Guard each unload: resources may have failed to load. shadowPlane
-     * owns shadowTex via its material, so UnloadModel frees both. */
-    if (game->shadowTex.id != 0) UnloadModel(game->shadowPlane);
-    if (game->celShader.id != 0) UnloadShader(game->celShader);
 
     RendererShutdown(&game->renderer);
     DebugShutdown();
@@ -382,10 +215,7 @@ void GameRun(Game* game)
             RendererBuildDrawList(&game->renderer, game->camera.camera, game->alpha);
 
             BeginMode3D(game->camera.camera);
-
-                applyCelShaderUniforms(game);
                 RendererDraw3D(&game->renderer);
-                drawBlobShadows(game);
                 LevelManagerRender3D(&game->levelMgr, game->alpha);
                 DebugRender3D(game);
 
@@ -401,27 +231,6 @@ void GameRun(Game* game)
 
         EndDrawing();
     }
-}
-
-/* ── Render Helpers ──────────────────────────────────────────────────────── */
-
-void GameApplyDefaultShader(Game* game, Model* model)
-{
-    assert(game && model);
-    if (game->celShader.id == 0) return;  /* Shader didn't load. */
-
-    for (int m = 0; m < model->materialCount; m++)
-    {
-        model->materials[m].shader = game->celShader;
-    }
-}
-
-void GameSetBlobShadow(Game* game, RenderHandle handle, bool enabled, float radius)
-{
-    assert(game);
-    if (handle < 0 || handle >= RENDERER_MAX_RENDERABLES) return;
-    game->blobOn[handle]     = enabled;
-    game->blobRadius[handle] = radius;
 }
 
 void GameSetClearColor(Game* game, Color color)
