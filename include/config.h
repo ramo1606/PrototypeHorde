@@ -45,8 +45,8 @@
 #define ARENA_LEVEL_SIZE        (8  * 1024 * 1024)
 #define ARENA_SCRATCH_SIZE      (1  * 1024 * 1024)
 
-/* ── Kit module overrides ────────────────────────────────────────────────── */
-/* Sized from gameplay maxes. Defined here so kit modules see them via
+/* ── Module overrides ────────────────────────────────────────────────── */
+/* Sized from gameplay maxes. Defined here so rehusable modules see them via
  * the #ifndef guards in renderer.h / physics.h. */
 
 #define RENDERER_MAX_RENDERABLES (MAX_ENEMIES + MAX_PROJECTILES + MAX_DEPLOYABLES \

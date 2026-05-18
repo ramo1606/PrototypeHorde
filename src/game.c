@@ -95,6 +95,7 @@ bool GameInit(Game* game, Level* initialLevel)
     assert(game);
     memset(game, 0, sizeof(*game));
 
+	/* Memory arenas */
     game->permanent = ArenaCreate(ARENA_PERMANENT_SIZE);
     game->level     = ArenaCreate(ARENA_LEVEL_SIZE);
     game->scratch   = ArenaCreate(ARENA_SCRATCH_SIZE);
@@ -108,6 +109,7 @@ bool GameInit(Game* game, Level* initialLevel)
         return false;
     }
 
+	/* Window and audio */
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Prototype Horde");
     if (!IsWindowReady())
     {
@@ -128,16 +130,17 @@ bool GameInit(Game* game, Level* initialLevel)
 
     game->clearColor = (Color){ 20, 20, 40, 255 };
 
+	/* Subsystems */
     DebugInit();
     RendererInit(&game->renderer);
     CameraInit(&game->camera);
     PhysicsInit(&game->physWorld);
-
     LevelManagerInit(&game->levelMgr, game, initialLevel);
     game->levelMgr.onSwap = onLevelSwap;
 
     DebugRegister3D(2, physDebugDraw3D);
 
+	/* Timing */
     game->accumulator         = 0.0f;
     game->frametimeMin        = 9999.0f;
     game->frametimeResetTimer = 1.0;
@@ -180,6 +183,7 @@ void GameRun(Game* game)
 
         LevelManagerUpdate(&game->levelMgr, frameTime);
 
+		/* Fixed timestep */
         game->accumulator += frameTime;
         game->updateCount = 0;
 
@@ -218,7 +222,6 @@ void GameRun(Game* game)
                 RendererDraw3D(&game->renderer);
                 LevelManagerRender3D(&game->levelMgr, game->alpha);
                 DebugRender3D(game);
-
             EndMode3D();
 
             LevelManagerRenderHUD(&game->levelMgr, game->alpha);

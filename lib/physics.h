@@ -70,17 +70,17 @@ typedef struct Collider
     ColliderType   type;
     ColliderShape  shape;
 
-    Vector3        position;     /* World-space center */
+    Vector3 position;       /* World-space center */
 
-    int            layer;        /* What this collider IS (single bit) */
-    int            mask;         /* What this collider hits (bits)     */
+    int layer;              /* What this collider IS (single bit) */
+    int mask;               /* What this collider hits (bits)     */
 
-    int  ownerID;                /* Gameplay-defined; physics doesn't care.
-                                  * Convention: -1 = scenery / no owner. */
+    int  ownerID;           /* Gameplay-defined; physics doesn't care.
+                            * Convention: -1 = scenery / no owner. */
 
     bool active;
-    bool dynamic;                /* Movable via MoveAndCollide?         */
-    bool trigger;                /* Detect overlap but don't resolve?   */
+    bool dynamic;           /* Movable via MoveAndCollide?         */
+    bool trigger;           /* Detect overlap but don't resolve?   */
 } Collider;
 
 /* ── Collision results ───────────────────────────────────────────────────── */
