@@ -3,8 +3,27 @@
 #include "debug.h"
 #include "raylib.h"
 
+#include "level_sandbox.h"
+#include "level_renderer_test.h"
+#include "level_physics_test.h"
+
 #include <assert.h>
 #include <string.h>
+
+static Level* const LEVELS[] =
+{
+    &LEVEL_SANDBOX,
+    &LEVEL_RENDERER_TEST,
+    &LEVEL_PHYSICS_TEST,
+    NULL, /* Sentinel */
+};
+
+static int findLevelIndex(Level* current)
+{
+    int i = 0;
+    while (LEVELS[i] && LEVELS[i] != current) i++;
+    return i;
+}
 
 /* ── Debug Callbacks ─────────────────────────────────────────────────────── */
 
@@ -187,6 +206,19 @@ void GameRun(Game* game)
         game->accumulator += frameTime;
         game->updateCount = 0;
 
+        if (IsKeyPressed(KEY_LEFT) && !LevelManagerIsTransitioning(&game->levelMgr))
+        {
+            int index = findLevelIndex(game->levelMgr.activeLevel);
+            if (index > 0) index--;
+            LevelManagerTransitionTo(&game->levelMgr, LEVELS[index], NULL, NULL, 0.5f);
+        }
+        else if (IsKeyPressed(KEY_RIGHT) && !LevelManagerIsTransitioning(&game->levelMgr))
+        {
+            int index = findLevelIndex(game->levelMgr.activeLevel);
+            if (LEVELS[index + 1]) index++;
+            LevelManagerTransitionTo(&game->levelMgr, LEVELS[index], NULL, NULL, 0.5f);
+        }
+
         while (game->accumulator >= FIXED_TIMESTEP)
         {
             RendererPreUpdate(&game->renderer);
@@ -216,9 +248,15 @@ void GameRun(Game* game)
 
             ClearBackground(game->clearColor);
 
-            RendererBuildDrawList(&game->renderer, game->camera.camera, game->alpha);
+            Camera3D levelCamera = game->camera.camera;
+            if (game->levelMgr.activeLevel && game->levelMgr.activeLevel->GetCamera)
+            {
+                levelCamera = *game->levelMgr.activeLevel->GetCamera(game);
+            }
 
-            BeginMode3D(game->camera.camera);
+            RendererBuildDrawList(&game->renderer, levelCamera, game->alpha);
+
+            BeginMode3D(levelCamera);
                 RendererDraw3D(&game->renderer);
                 LevelManagerRender3D(&game->levelMgr, game->alpha);
                 DebugRender3D(game);

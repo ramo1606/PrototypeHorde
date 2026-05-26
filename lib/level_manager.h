@@ -21,6 +21,7 @@
 
 /* ── Level vtable ────────────────────────────────────────────────────────── */
 
+typedef Camera3D* (*GetCameraFn)(void* user);
 typedef void (*LevelInitFn)(void* user);
 typedef void (*LevelShutdownFn)(void* user);
 typedef void (*LevelInputFn)(void* user);
@@ -31,6 +32,8 @@ typedef void (*LevelRenderHUDFn)(void* user, float alpha);
 typedef struct Level
 {
     const char* name;
+
+    GetCameraFn      GetCamera;
 
     LevelInitFn      Init;
     LevelShutdownFn  Shutdown;
