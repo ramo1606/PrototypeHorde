@@ -29,7 +29,7 @@ typedef void (*LevelUpdateFn)(void* user, float dt);
 typedef void (*LevelRender3DFn)(void* user, float alpha);
 typedef void (*LevelRenderHUDFn)(void* user, float alpha);
 
-typedef struct Level
+typedef struct
 {
     const char* name;
 
@@ -59,7 +59,7 @@ typedef void (*TransitionEffectFn)(float progress);
  * level's Shutdown and before the new level's Init. */
 typedef void (*LevelSwapFn)(void* user);
 
-typedef struct LevelManager
+typedef struct
 {
     Level* activeLevel;
     Level* pendingLevel;

@@ -36,7 +36,7 @@
 typedef int RenderHandle;
 #define RENDER_HANDLE_INVALID (-1)
 
-typedef struct Renderable
+typedef struct
 {
     Model   model;
     Matrix  transformCurr;       /* Current tick's world transform           */
@@ -48,7 +48,7 @@ typedef struct Renderable
 } Renderable;
 
 /* Plane in Hessian normal form: ax + by + cz + d = 0 */
-typedef struct FrustumPlane
+typedef struct
 {
     float a, b, c, d;
 } FrustumPlane;
@@ -56,7 +56,7 @@ typedef struct FrustumPlane
 /* Entry in the sorted draw list: renderable index + sort key.
  * Public so host-side effect passes can iterate visible objects with
  * their interpolated transforms. */
-typedef struct DrawEntry
+typedef struct
 {
     int    index;                /* Index into renderables[] */
     int    materialID;
@@ -64,7 +64,7 @@ typedef struct DrawEntry
     Matrix transform;            /* Cached interpolated transform */
 } DrawEntry;
 
-typedef struct Renderer
+typedef struct
 {
     /* Renderable pool */
     Renderable renderables[RENDERER_MAX_RENDERABLES];
